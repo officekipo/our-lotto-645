@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type PurchaseType = '자동' | '수동';
+export type PurchaseType = '자동' | '수동' | '반자동' | '직접 입력';
 
 export type SavedCheckTicket = {
   id: string;

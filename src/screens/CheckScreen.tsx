@@ -95,10 +95,6 @@ function CheckScreen({ draw }: { draw: DrawData }) {
     return additions[0];
   }
 
-  function setPurchaseType(id: string, purchaseType: PurchaseType) {
-    setTickets((current) => current.map((ticket) => ticket.id === id ? { ...ticket, purchaseType } : ticket));
-  }
-
   function handleQrScanned(data: string) {
     if (scanningRef.current) return;
     scanningRef.current = true;
@@ -111,7 +107,7 @@ function CheckScreen({ draw }: { draw: DrawData }) {
       const modeCode = match[1].toLowerCase();
       const segment = match[2];
       const numbers = Array.from({ length: 6 }, (_, i) => Number(segment.slice(i * 2, i * 2 + 2)));
-      const purchaseType: PurchaseType | null = modeCode === 'q' ? '자동' : modeCode === 'm' ? '수동' : null;
+      const purchaseType: PurchaseType | null = modeCode === 'q' ? '자동' : modeCode === 'm' ? '수동' : modeCode === 'b' ? '반자동' : null;
       const valid = round > 0 && numbers.every((n) => n >= 1 && n <= 45) && new Set(numbers).size === 6;
       return valid ? [{ round, numbers: numbers.sort((a, b) => a - b), purchaseType }] : [];
     });
@@ -170,7 +166,7 @@ function CheckScreen({ draw }: { draw: DrawData }) {
         prize: evaluated.prize,
       } : ticket));
     } else {
-      addTickets([{ round: draw.round, numbers, source: '수기' }]);
+      addTickets([{ round: draw.round, numbers, source: '수기', purchaseType: '직접 입력' }]);
       setTickets((current) => current.map((ticket) => ticket.round === draw.round && ticket.numbers.join('-') === numbers.slice().sort((a, b) => a - b).join('-') && ticket.rank === null ? {
         ...ticket,
         rank: evaluated.rank,
@@ -286,23 +282,11 @@ function CheckScreen({ draw }: { draw: DrawData }) {
                   })}
                 </View>
                 <View style={rnStyle(tw.purchaseTypeRow)}>
-                  <Text style={rnStyle(tw.purchaseTypeLabel)}>구매 방식</Text>
-                  <View style={rnStyle(tw.purchaseTypeButtons)}>
-                    {ticket.purchaseType ? (
-                      <View style={rnStyle(tw.purchaseTypeBadge)}>
-                        <Text style={rnStyle(tw.purchaseTypeBadgeText)}>{ticket.purchaseType}</Text>
-                      </View>
-                    ) : (
-                      <>
-                        {(['자동', '수동'] as PurchaseType[]).map((type) => {
-                          const selected = ticket.purchaseType === type;
-                          return <Pressable key={type} onPress={(event) => { event.stopPropagation(); setPurchaseType(ticket.id, type); }} style={rnStyle(tw.purchaseTypeButton)}>
-                            <Text style={rnStyle(tw.purchaseTypeButtonText)}>{type}</Text>
-                          </Pressable>;
-                        })}
-                        <Text style={rnStyle(tw.purchaseTypeUnset)}>선택 필요</Text>
-                      </>
-                    )}
+                  <Text style={rnStyle(tw.purchaseTypeLabel)}>입력 방식</Text>
+                  <View style={rnStyle(tw.purchaseTypeBadge)}>
+                    <Text style={rnStyle(tw.purchaseTypeBadgeText)}>
+                      {ticket.purchaseType ?? (ticket.source === '수기' ? '직접 입력' : '확인 필요')}
+                    </Text>
                   </View>
                 </View>
                 <Text className={tw.savedTicketMeta} style={rnStyle(tw.savedTicketMeta)}>{ticket.rank ? `${ticket.matches}개 일치${ticket.bonusMatch ? ' · 보너스 일치' : ''}` : '아직 당첨 결과를 확인하지 않았습니다.'}</Text>
