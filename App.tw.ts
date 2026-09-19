@@ -424,5 +424,13 @@ export const tw = {
   "switchTrackOn": "w-full h-full rounded-[16px] items-start justify-center",
   "switchKnob": "w-[24px] h-[24px] rounded-[12px] bg-[#FFFFFF] shadow-sm",
   "unclaimedButtonHint": "text-[10px] font-[900] text-[#D97706]",
-  "claimedButtonHint": "text-[10px] font-[900] text-[#17864B]"
+  "claimedButtonHint": "text-[10px] font-[900] text-[#17864B]",
+  "purchaseTypeRow": "mt-[10px] flex-row items-center justify-between gap-[10px]",
+  "purchaseTypeLabel": "text-[11px] font-[800] text-[#6B7684]",
+  "purchaseTypeButtons": "flex-row items-center gap-[5px]",
+  "purchaseTypeButton": "min-w-[44px] h-[28px] px-[9px] rounded-[9px] items-center justify-center bg-[#F7F8FA] border-[1px] border-[#E5E8EB]",
+  "purchaseTypeButtonActive": "bg-[#EAF3FF] border-[#3182F6]",
+  "purchaseTypeButtonText": "text-[10px] font-[800] text-[#8B95A1]",
+  "purchaseTypeButtonTextActive": "text-[10px] font-[900] text-[#3182F6]",
+  "purchaseTypeUnset": "ml-[2px] text-[9px] font-[700] text-[#A0A8B2]",
 } as const;
