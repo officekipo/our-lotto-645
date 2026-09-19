@@ -621,3 +621,12 @@ src/components/
 - 서비스 UI 명칭과 OG 이미지 문구를 `번호 생성`으로 통일
 - OG/X 제목에 번호 생성, 로또 통계, 당첨 확인, 당첨금 핵심 기능을 반영
 - canonical, OG URL/image URL 및 이미지 1200×630 메타 정보 유지
+
+### PHASE 17-4 — 사용자 지정 OG 이미지 원본 적용 및 메타 정보 정합성 수정
+- 사용자가 최종 선택한 OG 이미지 원본을 `public/og-image.png`에 그대로 적용했습니다.
+- 이미지 자체의 재생성/재디자인/임의 크롭을 하지 않았습니다.
+- 실제 이미지 크기(1536×1024)에 맞춰 `og:image:width` / `og:image:height`를 수정했습니다.
+- `og:image:type`을 `image/png`으로 명시했습니다.
+- OG/X 이미지 대체 텍스트에 현재 서비스 핵심 기능인 `번호 생성 · 로또 통계 · 당첨 확인 · 당첨금`을 반영했습니다.
+- 실제 OG URL은 `https://our-lotto-645.vercel.app/og-image.png`를 유지합니다.
+- Expo Web의 `public/` 파일은 Web export 시 `dist/`로 복사되므로 Vercel 재배포 시 루트의 `/og-image.png`로 제공됩니다.
