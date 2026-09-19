@@ -17,16 +17,29 @@ type ScannedTicket = {
 type CheckTicket = SavedCheckTicket;
 
 function parseLottoQr(raw: string): ScannedTicket[] {
+  // 동행복권 QR은 v= 뒤에 회차 4자리 + 게임 구분 문자 + 12자리(6개 번호)
+  // 구조가 이어집니다. 예: v=1242m011223344546q010203040506...
   const valueMatch = raw.match(/[?&]v=([^&]+)/i);
-  const payload = decodeURIComponent(valueMatch?.[1] ?? raw);
-  const matches = [...payload.matchAll(/(\d{4})([A-Za-z])(\d{12})/g)];
-  return matches.flatMap((match, index) => {
-    const round = Number(match[1]);
-    const digits = match[3];
-    const numbers = Array.from({ length: 6 }, (_, i) => Number(digits.slice(i * 2, i * 2 + 2)));
-    const valid = round > 0 && numbers.length === 6 && numbers.every((n) => n >= 1 && n <= 45) && new Set(numbers).size === 6;
+  const payload = decodeURIComponent(valueMatch?.[1] ?? raw).trim();
+  const roundMatch = payload.match(/^(\d{4})/);
+  if (!roundMatch) return [];
+
+  const round = Number(roundMatch[1]);
+  const gamePayload = payload.slice(4);
+  const segments = gamePayload.split(/[A-Za-z]+/).filter(Boolean);
+  const now = Date.now();
+
+  return segments.flatMap((segment, index) => {
+    if (!/^\d{12}$/.test(segment)) return [];
+    const numbers = Array.from({ length: 6 }, (_, i) => Number(segment.slice(i * 2, i * 2 + 2)));
+    const valid = round > 0 && numbers.every((n) => n >= 1 && n <= 45) && new Set(numbers).size === 6;
     if (!valid) return [];
-    return [{ id: `${round}-${numbers.join('-')}-${Date.now()}-${index}`, round, numbers: numbers.sort((a, b) => a - b), source: 'QR' as const }];
+    return [{
+      id: `${round}-${numbers.join('-')}-${now}-${index}`,
+      round,
+      numbers: numbers.sort((a, b) => a - b),
+      source: 'QR' as const,
+    }];
   });
 }
 
@@ -67,6 +80,7 @@ function CheckScreen({ draw }: { draw: DrawData }) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraRetryKey, setCameraRetryKey] = useState(0);
+  const [qrBatch, setQrBatch] = useState<ScannedTicket[]>([]);
   const [tickets, setTickets] = useState<CheckTicket[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [storageReady, setStorageReady] = useState(false);
@@ -131,8 +145,8 @@ function CheckScreen({ draw }: { draw: DrawData }) {
       Alert.alert('QR을 읽었지만 번호를 찾지 못했습니다.', '로또 6/45 구매용 QR인지 확인해 주세요.');
       return;
     }
-    const first = addTickets(parsed.map((ticket) => ({ round: ticket.round, numbers: ticket.numbers, source: 'QR' as const })));
-    if (first) applyTicket(first);
+    addTickets(parsed.map((ticket) => ({ round: ticket.round, numbers: ticket.numbers, source: 'QR' as const })));
+    setQrBatch(parsed);
     setScannerOpen(false);
     scanningRef.current = false;
   }
@@ -247,6 +261,35 @@ function CheckScreen({ draw }: { draw: DrawData }) {
         <Text pointerEvents="none" className={tw.qrButtonArrow} style={rnStyle(tw.qrButtonArrow)}>›</Text>
       </Pressable>
 
+      {qrBatch.length > 0 ? (
+        <View className={tw.savedTicketCard} style={rnStyle(tw.savedTicketCard)}>
+          <View className={tw.savedTicketHeader} style={rnStyle(tw.savedTicketHeader)}>
+            <View>
+              <Text className={tw.savedTicketTitle} style={rnStyle(tw.savedTicketTitle)}>QR 스캔 결과</Text>
+              <Text className={tw.savedTicketCount} style={rnStyle(tw.savedTicketCount)}>{qrBatch[0].round}회 · {qrBatch.length}게임</Text>
+            </View>
+          </View>
+          {qrBatch.map((ticket, index) => (
+            <View key={ticket.id} className={tw.savedTicketRow} style={rnStyle(tw.savedTicketRow)}>
+              <View className={tw.savedTicketMain} style={rnStyle(tw.savedTicketMain)}>
+                <View className={tw.savedTicketTop} style={rnStyle(tw.savedTicketTop)}>
+                  <Text className={tw.savedTicketRound} style={rnStyle(tw.savedTicketRound)}>게임 {index + 1}</Text>
+                  <Text className={tw.savedTicketRank} style={rnStyle(tw.savedTicketRank)}>6개 번호</Text>
+                </View>
+                <View className={tw.savedTicketNumbersRow} style={rnStyle(tw.savedTicketNumbersRow)}>
+                  {ticket.numbers.map((number) => (
+                    <View key={number} className={tw.savedTicketNumberBall} style={rnStyle(tw.savedTicketNumberBall)}>
+                      <Text className={tw.savedTicketNumberBallText} style={rnStyle(tw.savedTicketNumberBallText)}>{number}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <SectionHeader title="번호 직접 입력" />
       <View className={tw.inputGrid} style={rnStyle(tw.inputGrid)}>
         {values.map((value, index) => {
           const matched = Boolean(result && value && draw.numbers.includes(Number(value)));
