@@ -1,70 +1,60 @@
 <!DOCTYPE html>
-<html lang="%LANG_ISO_CODE%">
-<head>
-  <meta charset="utf-8" />
-  <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.00001, viewport-fit=cover" />
-  <meta name="theme-color" content="#2F80ED" />
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="google" content="notranslate" />
+    <meta name="description" content="로또 번호 생성부터 당첨 확인, 회차별 통계와 당첨금까지 한 곳에서 확인하세요." />
+    <link rel="canonical" href="https://our-lotto-645.vercel.app/" />
+    <link rel="icon" href="/favicon.ico" />
 
-  <title>우리의 6/45 — 로또 번호 생성 · 로또 통계 · 당첨 확인 · 당첨금</title>
-  <meta name="description" content="로또 번호 생성부터 당첨 확인, 회차별 통계와 당첨금까지 한 곳에서 확인하세요." />
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="우리의 6/45" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:title" content="우리의 6/45 — 로또 번호 생성 · 로또 통계 · 당첨 확인 · 당첨금" />
+    <meta property="og:description" content="로또 번호 생성부터 당첨 확인, 회차별 통계와 당첨금까지 한 곳에서 확인하세요." />
+    <meta property="og:url" content="https://our-lotto-645.vercel.app/" />
+    <meta property="og:image" content="https://our-lotto-645.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1536" />
+    <meta property="og:image:height" content="1024" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="OUR LOTTO — 우리의 6/45 — 번호 생성 · 로또 통계 · 당첨 확인 · 당첨금" />
 
-  <link rel="canonical" href="https://our-lotto-645.vercel.app/" />
-  <link rel="icon" href="/favicon.ico" />
+    <!-- X / Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="우리의 6/45 — 로또 번호 생성 · 로또 통계 · 당첨 확인 · 당첨금" />
+    <meta name="twitter:description" content="로또 번호 생성부터 당첨 확인, 회차별 통계와 당첨금까지 한 곳에서 확인하세요." />
+    <meta name="twitter:image" content="https://our-lotto-645.vercel.app/og-image.png" />
+    <meta name="twitter:image:alt" content="OUR LOTTO — 우리의 6/45 — 번호 생성 · 로또 통계 · 당첨 확인 · 당첨금" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>우리의 6/45 — 로또 번호 생성 · 로또 통계 · 당첨 확인 · 당첨금</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
 
-  <!-- Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="우리의 6/45" />
-  <meta property="og:locale" content="ko_KR" />
-  <meta property="og:title" content="우리의 6/45 — 로또 번호 생성 · 로또 통계 · 당첨 확인 · 당첨금" />
-  <meta property="og:description" content="로또 번호 생성부터 당첨 확인, 회차별 통계와 당첨금까지 한 곳에서 확인하세요." />
-  <meta property="og:url" content="https://our-lotto-645.vercel.app/" />
-  <meta property="og:image" content="https://our-lotto-645.vercel.app/og-image.png" />
-  <meta property="og:image:width" content="1536" />
-  <meta property="og:image:height" content="1024" />
-  <meta property="og:image:alt" content="OUR LOTTO — 우리의 6/45 — 번호 생성 · 로또 통계 · 당첨 확인 · 당첨금" />
-  <meta property="og:image:type" content="image/png" />
-
-  <!-- X / Twitter -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="우리의 6/45 — 로또 번호 생성 · 로또 통계 · 당첨 확인 · 당첨금" />
-  <meta name="twitter:description" content="로또 번호 생성부터 당첨 확인, 회차별 통계와 당첨금까지 한 곳에서 확인하세요." />
-  <meta name="twitter:image" content="https://our-lotto-645.vercel.app/og-image.png" />
-  <meta name="twitter:image:alt" content="OUR LOTTO — 우리의 6/45 — 번호 생성 · 로또 통계 · 당첨 확인 · 당첨금" />
-
-  <style>
-    html, body, #root {
-      width: 100%;
-      -webkit-overflow-scrolling: touch;
-      margin: 0;
-      padding: 0;
-      min-height: 100%;
-    }
-    #root {
-      flex-shrink: 0;
-      flex-basis: auto;
-      flex-grow: 1;
-      display: flex;
-      flex: 1;
-    }
-    html {
-      scroll-behavior: smooth;
-      -webkit-text-size-adjust: 100%;
-      height: calc(100% + env(safe-area-inset-top));
-    }
-    body {
-      display: flex;
-      overflow-y: auto;
-      overscroll-behavior-y: none;
-      text-rendering: optimizeLegibility;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      -ms-overflow-style: scrollbar;
-    }
-  </style>
-</head>
-<body>
-  <noscript>우리의 6/45를 이용하려면 JavaScript를 활성화해 주세요.</noscript>
-  <div id="root"></div>
-</body>
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  </body>
 </html>
