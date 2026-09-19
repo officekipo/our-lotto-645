@@ -18,7 +18,12 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "우리의 6/45",
+      "shortName": "우리의 6/45",
+      "lang": "ko",
+      "description": "로또 번호 생성부터 당첨 확인, 회차별 통계와 당첨금까지 한 곳에서 확인하세요.",
+      "themeColor": "#2F80ED"
     },
     "icon": "./assets/icon.png",
     "plugins": [
