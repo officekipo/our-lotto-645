@@ -2,47 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
 import { CameraView, useCameraPermissions } from '../platform/camera';
 import * as Clipboard from '../platform/clipboard';
-import { loadCheckTickets, saveCheckTickets, type SavedCheckTicket } from '../storage/checkTickets';
+import { loadCheckTickets, saveCheckTickets, type PurchaseType, type SavedCheckTicket } from '../storage/checkTickets';
 import { tw } from '../../App.tw';
 import { cn } from '../styles/cn';
 import { COLORS, DrawData, Text, TextInput, LottoBall, PageHeader, SectionHeader, rnStyle, getBallColor } from '../components/common';
 
-type ScannedTicket = {
-  id: string;
-  round: number;
-  numbers: number[];
-  source: 'QR';
-};
-
 type CheckTicket = SavedCheckTicket;
-
-function parseLottoQr(raw: string): ScannedTicket[] {
-  // 동행복권 QR은 v= 뒤에 "회차 4자리 + q + 게임별 12자리 번호"가 이어지고,
-  // 마지막 게임 뒤에는 구매/인증용 부가 데이터가 붙을 수 있습니다.
-  // 따라서 알파벳 구분자로 전체 문자열을 split하면 마지막 게임이 누락될 수 있어
-  // 각 q 뒤의 정확한 12자리만 게임 번호로 추출합니다.
-  const valueMatch = raw.match(/[?&]v=([^&]+)/i);
-  const payload = decodeURIComponent(valueMatch?.[1] ?? raw).trim();
-  const roundMatch = payload.match(/^(\d{4})/);
-  if (!roundMatch) return [];
-
-  const round = Number(roundMatch[1]);
-  const gameMatches = [...payload.slice(4).matchAll(/[A-Za-z]([0-9]{12})/g)];
-  const now = Date.now();
-
-  return gameMatches.flatMap((match, index) => {
-    const segment = match[1];
-    const numbers = Array.from({ length: 6 }, (_, i) => Number(segment.slice(i * 2, i * 2 + 2)));
-    const valid = round > 0 && numbers.every((n) => n >= 1 && n <= 45) && new Set(numbers).size === 6;
-    if (!valid) return [];
-    return [{
-      id: `${round}-${numbers.join('-')}-${now}-${index}`,
-      round,
-      numbers: numbers.sort((a, b) => a - b),
-      source: 'QR' as const,
-    }];
-  });
-}
 
 function prizeForRank(draw: DrawData, rank: string): number {
   switch (rank) {
@@ -81,7 +46,6 @@ function CheckScreen({ draw }: { draw: DrawData }) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraRetryKey, setCameraRetryKey] = useState(0);
-  const [qrBatch, setQrBatch] = useState<ScannedTicket[]>([]);
   const [tickets, setTickets] = useState<CheckTicket[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [storageReady, setStorageReady] = useState(false);
@@ -119,6 +83,7 @@ function CheckScreen({ draw }: { draw: DrawData }) {
       round: item.round,
       numbers: [...item.numbers].sort((a, b) => a - b),
       source: item.source,
+      purchaseType: null,
       rank: null,
       matches: 0,
       bonusMatch: false,
@@ -130,24 +95,30 @@ function CheckScreen({ draw }: { draw: DrawData }) {
     return additions[0];
   }
 
+  function setPurchaseType(id: string, purchaseType: PurchaseType) {
+    setTickets((current) => current.map((ticket) => ticket.id === id ? { ...ticket, purchaseType } : ticket));
+  }
+
   function handleQrScanned(data: string) {
     if (scanningRef.current) return;
     scanningRef.current = true;
-    let parsed: ScannedTicket[] = [];
-    try {
-      parsed = parseLottoQr(data);
-    } catch {
-      scanningRef.current = false;
-      Alert.alert('QR 데이터를 읽지 못했습니다.', '다시 스캔해 주세요.');
-      return;
-    }
+    const valueMatch = data.match(/[?&]v=([^&]+)/i);
+    const payload = decodeURIComponent(valueMatch?.[1] ?? data).trim();
+    const roundMatch = payload.match(/^(\d{4})/);
+    const round = roundMatch ? Number(roundMatch[1]) : 0;
+    const gameMatches = [...payload.slice(4).matchAll(/[A-Za-z]([0-9]{12})/g)];
+    const parsed = gameMatches.flatMap((match) => {
+      const segment = match[1];
+      const numbers = Array.from({ length: 6 }, (_, i) => Number(segment.slice(i * 2, i * 2 + 2)));
+      const valid = round > 0 && numbers.every((n) => n >= 1 && n <= 45) && new Set(numbers).size === 6;
+      return valid ? [{ round, numbers: numbers.sort((a, b) => a - b) }] : [];
+    });
     if (!parsed.length) {
       scanningRef.current = false;
       Alert.alert('QR을 읽었지만 번호를 찾지 못했습니다.', '로또 6/45 구매용 QR인지 확인해 주세요.');
       return;
     }
     addTickets(parsed.map((ticket) => ({ round: ticket.round, numbers: ticket.numbers, source: 'QR' as const })));
-    setQrBatch(parsed);
     setScannerOpen(false);
     scanningRef.current = false;
   }
@@ -262,33 +233,6 @@ function CheckScreen({ draw }: { draw: DrawData }) {
         <Text pointerEvents="none" className={tw.qrButtonArrow} style={rnStyle(tw.qrButtonArrow)}>›</Text>
       </Pressable>
 
-      {qrBatch.length > 0 ? (
-        <View className={tw.savedTicketCard} style={rnStyle(tw.savedTicketCard)}>
-          <View className={tw.savedTicketHeader} style={rnStyle(tw.savedTicketHeader)}>
-            <View>
-              <Text className={tw.savedTicketTitle} style={rnStyle(tw.savedTicketTitle)}>QR 스캔 결과</Text>
-              <Text className={tw.savedTicketCount} style={rnStyle(tw.savedTicketCount)}>{qrBatch[0].round}회 · {qrBatch.length}게임</Text>
-            </View>
-          </View>
-          {qrBatch.map((ticket, index) => (
-            <View key={ticket.id} className={tw.savedTicketRow} style={rnStyle(tw.savedTicketRow)}>
-              <View className={tw.savedTicketMain} style={rnStyle(tw.savedTicketMain)}>
-                <View className={tw.savedTicketTop} style={rnStyle(tw.savedTicketTop)}>
-                  <Text className={tw.savedTicketRound} style={rnStyle(tw.savedTicketRound)}>게임 {index + 1}</Text>
-                  <Text className={tw.savedTicketRank} style={rnStyle(tw.savedTicketRank)}>6개 번호</Text>
-                </View>
-                <View className={tw.savedTicketNumbersRow} style={rnStyle(tw.savedTicketNumbersRow)}>
-                  {ticket.numbers.map((number) => (
-                    <View key={number} className={tw.savedTicketNumberBall} style={rnStyle(tw.savedTicketNumberBall)}>
-                      <Text className={tw.savedTicketNumberBallText} style={rnStyle(tw.savedTicketNumberBallText)}>{number}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : null}
 
       <SectionHeader title="번호 직접 입력" />
       <View className={tw.inputGrid} style={rnStyle(tw.inputGrid)}>
@@ -328,7 +272,7 @@ function CheckScreen({ draw }: { draw: DrawData }) {
             <View key={ticket.id} className={cn(tw.savedTicketRow, ticket.claimed && tw.savedTicketRowClaimed)} style={rnStyle(cn(tw.savedTicketRow, ticket.claimed && tw.savedTicketRowClaimed))}>
               <Pressable onPress={() => toggleSelected(ticket.id)} className={tw.savedTicketCheck} style={rnStyle(tw.savedTicketCheck)}><Text className={selectedIds.includes(ticket.id) ? tw.savedTicketCheckActive : tw.savedTicketCheckText} style={rnStyle(selectedIds.includes(ticket.id) ? tw.savedTicketCheckActive : tw.savedTicketCheckText)}>{selectedIds.includes(ticket.id) ? '✓' : '□'}</Text></Pressable>
               <Pressable onPress={() => applyTicket(ticket)} className={tw.savedTicketMain} style={rnStyle(tw.savedTicketMain)}>
-                <View className={tw.savedTicketTop} style={rnStyle(tw.savedTicketTop)}><Text className={tw.savedTicketRound} style={rnStyle(tw.savedTicketRound)}>{ticket.round}회 · {ticket.source}</Text><Text className={ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank} style={rnStyle(ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank)}>{ticket.rank ?? '미확인'}</Text></View>
+                <View className={tw.savedTicketTop} style={rnStyle(tw.savedTicketTop)}><Text className={tw.savedTicketRound} style={rnStyle(tw.savedTicketRound)}>{ticket.round}회</Text><Text className={ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank} style={rnStyle(ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank)}>{ticket.rank ?? '미확인'}</Text></View>
                 <View className={tw.savedTicketNumbersRow} style={rnStyle(tw.savedTicketNumbersRow)}>
                   {ticket.numbers.map((number) => {
                     const hit = Boolean(ticket.rank && ticket.rank !== '낙첨' && ticket.round === draw.round && draw.numbers.includes(number));
@@ -338,6 +282,18 @@ function CheckScreen({ draw }: { draw: DrawData }) {
                       </View>
                     );
                   })}
+                </View>
+                <View style={rnStyle(tw.purchaseTypeRow)}>
+                  <Text style={rnStyle(tw.purchaseTypeLabel)}>구매 방식</Text>
+                  <View style={rnStyle(tw.purchaseTypeButtons)}>
+                    {(['자동', '수동'] as PurchaseType[]).map((type) => {
+                      const selected = ticket.purchaseType === type;
+                      return <Pressable key={type} onPress={(event) => { event.stopPropagation(); setPurchaseType(ticket.id, type); }} style={[rnStyle(tw.purchaseTypeButton), selected ? rnStyle(tw.purchaseTypeButtonActive) : undefined]}>
+                        <Text style={[rnStyle(tw.purchaseTypeButtonText), selected ? rnStyle(tw.purchaseTypeButtonTextActive) : undefined]}>{type}</Text>
+                      </Pressable>;
+                    })}
+                    {!ticket.purchaseType ? <Text style={rnStyle(tw.purchaseTypeUnset)}>선택 필요</Text> : null}
+                  </View>
                 </View>
                 <Text className={tw.savedTicketMeta} style={rnStyle(tw.savedTicketMeta)}>{ticket.rank ? `${ticket.matches}개 일치${ticket.bonusMatch ? ' · 보너스 일치' : ''}` : '아직 당첨 결과를 확인하지 않았습니다.'}</Text>
                 {ticket.rank && ticket.rank !== '낙첨' ? <Text className={tw.savedTicketPrize} style={rnStyle(tw.savedTicketPrize)}>당첨금 {ticket.prize > 0 ? `${ticket.prize.toLocaleString('ko-KR')}원` : '확인 중'}</Text> : null}

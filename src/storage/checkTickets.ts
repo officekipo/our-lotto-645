@@ -1,10 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export type PurchaseType = '자동' | '수동';
+
 export type SavedCheckTicket = {
   id: string;
   round: number;
   numbers: number[];
   source: '수기' | 'QR';
+  purchaseType?: PurchaseType | null;
   rank: string | null;
   matches: number;
   bonusMatch: boolean;

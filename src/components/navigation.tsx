@@ -46,10 +46,10 @@ export function AppHeader({ onHome, onMenu }: { onHome: () => void; onMenu: () =
       </Pressable>
       <View style={styles.headerActions}>
         <Pressable onPress={onHome} style={styles.headerActionButton} accessibilityLabel="홈">
-          <AppIcon name="home" size={22} />
+          <AppIcon name="home" size={18} />
         </Pressable>
         <Pressable onPress={onMenu} style={styles.headerActionButton} accessibilityLabel="메뉴">
-          <AppIcon name="menu" size={22} />
+          <AppIcon name="menu" size={18} />
         </Pressable>
       </View>
     </View>
