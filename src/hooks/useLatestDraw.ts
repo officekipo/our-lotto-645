@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { fetchDraw, fetchLatestDraw } from '../services/lottoApi';
 import type { DrawData } from '../types/lotto';
@@ -27,6 +27,7 @@ export function useLatestDraw() {
   const [draw, setDraw] = useState<DrawData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const drawRef = useRef<DrawData | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,19 +43,26 @@ export function useLatestDraw() {
       // 이전 회차(예: 1240회)로 조용히 내려가지 않습니다.
       const latest = await fetchLatestDraw({ force });
       if (latest && latest.round >= estimatedRound) {
-        if (!cancelled) setDraw(latest);
+        if (!cancelled) {
+          drawRef.current = latest;
+          setDraw(latest);
+        }
         if (!cancelled) setLoading(false);
         return;
       }
 
       const exact = await fetchDraw(estimatedRound, { force });
       if (exact && exact.round === estimatedRound) {
-        if (!cancelled) setDraw(exact);
+        if (!cancelled) {
+          drawRef.current = exact;
+          setDraw(exact);
+        }
         if (!cancelled) setLoading(false);
         return;
       }
 
       if (!cancelled) {
+        drawRef.current = null;
         setDraw(null);
         setError('최신 회차 정보를 가져오는 중입니다.');
         setLoading(false);
@@ -70,9 +78,17 @@ export function useLatestDraw() {
       }
     });
 
+    const pollTimer = setInterval(() => {
+      const estimatedRound = getEstimatedRound();
+      if (estimatedRound > 0 && (!drawRef.current || drawRef.current.round < estimatedRound)) {
+        void loadLatestDraw(true);
+      }
+    }, 60_000);
+
     return () => {
       cancelled = true;
       if (refreshTimer) clearTimeout(refreshTimer);
+      clearInterval(pollTimer);
       subscription.remove();
     };
   }, []);

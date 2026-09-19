@@ -3,6 +3,7 @@ import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
 import { CameraView, useCameraPermissions } from '../platform/camera';
 import * as Clipboard from '../platform/clipboard';
 import { loadCheckTickets, saveCheckTickets, type PurchaseType, type SavedCheckTicket } from '../storage/checkTickets';
+import { fetchDraw } from '../services/lottoApi';
 import { tw } from '../../App.tw';
 import { cn } from '../styles/cn';
 import { COLORS, DrawData, Text, TextInput, LottoBall, PageHeader, SectionHeader, rnStyle, getBallColor } from '../components/common';
@@ -49,6 +50,12 @@ function CheckScreen({ draw }: { draw: DrawData }) {
   const [tickets, setTickets] = useState<CheckTicket[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [storageReady, setStorageReady] = useState(false);
+  const [inputRoundText, setInputRoundText] = useState(String(draw.round));
+  const [inputDraw, setInputDraw] = useState<DrawData>(draw);
+  const [inputRoundLoading, setInputRoundLoading] = useState(false);
+  const [inputRoundError, setInputRoundError] = useState<string | null>(null);
+  const [roundDraws, setRoundDraws] = useState<Record<number, DrawData>>({});
+  const roundDrawCacheRef = useRef<Record<number, DrawData>>({});
   const scanningRef = useRef(false);
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -67,13 +74,127 @@ function CheckScreen({ draw }: { draw: DrawData }) {
     if (storageReady) void saveCheckTickets(tickets);
   }, [tickets, storageReady]);
 
+  useEffect(() => {
+    setInputRoundText(String(draw.round));
+    setInputDraw(draw);
+    setInputRoundError(null);
+    setResult(null);
+  }, [draw]);
+
+  useEffect(() => {
+    roundDrawCacheRef.current[draw.round] = draw;
+    const rounds = Array.from(new Set(tickets.map((ticket) => ticket.round)));
+    const missingRounds = rounds.filter((round) => !roundDrawCacheRef.current[round]);
+
+    if (!missingRounds.length) {
+      setRoundDraws({ ...roundDrawCacheRef.current });
+      return;
+    }
+
+    let cancelled = false;
+    Promise.all(missingRounds.map(async (round) => {
+      const fetched = await fetchDraw(round);
+      return fetched ? [round, fetched] as const : null;
+    })).then((results) => {
+      if (cancelled) return;
+      results.forEach((result) => {
+        if (result) roundDrawCacheRef.current[result[0]] = result[1];
+      });
+      setRoundDraws({ ...roundDrawCacheRef.current });
+    });
+
+    return () => { cancelled = true; };
+  }, [draw, tickets]);
+
+  useEffect(() => {
+    if (!tickets.length) return;
+    setTickets((current) => {
+      let changed = false;
+      const next = current.map((ticket) => {
+        if (ticket.round !== draw.round) return ticket;
+        const evaluated = evaluateTicket(ticket, draw);
+        if (
+          ticket.rank === evaluated.rank &&
+          ticket.matches === evaluated.matches.length &&
+          ticket.bonusMatch === evaluated.bonusMatch &&
+          ticket.prize === evaluated.prize
+        ) {
+          return ticket;
+        }
+        changed = true;
+        return {
+          ...ticket,
+          rank: evaluated.rank,
+          matches: evaluated.matches.length,
+          bonusMatch: evaluated.bonusMatch,
+          prize: evaluated.prize,
+        };
+      });
+      return changed ? next : current;
+    });
+  }, [draw, tickets.length]);
+
+  const ticketGroups = useMemo(() => {
+    const grouped = new Map<number, CheckTicket[]>();
+    for (const ticket of tickets) {
+      const group = grouped.get(ticket.round);
+      if (group) group.push(ticket);
+      else grouped.set(ticket.round, [ticket]);
+    }
+    return Array.from(grouped.entries())
+      .sort(([roundA], [roundB]) => roundB - roundA)
+      .map(([round, group]) => ({
+        round,
+        tickets: group.slice().sort((a, b) => b.createdAt - a.createdAt),
+      }));
+  }, [tickets]);
+
+  async function applyInputRound() {
+    const round = Number(inputRoundText);
+    if (!Number.isInteger(round) || round < 1) {
+      setInputRoundError('올바른 회차를 입력해 주세요.');
+      return;
+    }
+
+    if (round === draw.round) {
+      setInputDraw(draw);
+      setInputRoundError(null);
+      setResult(null);
+      return;
+    }
+
+    setInputRoundLoading(true);
+    setInputRoundError(null);
+    const fetched = await fetchDraw(round);
+    setInputRoundLoading(false);
+    if (!fetched) {
+      setInputRoundError('해당 회차 정보를 가져올 수 없습니다. 회차를 확인해 주세요.');
+      return;
+    }
+    setInputDraw(fetched);
+    setResult(null);
+  }
+
   function applyTicket(ticket: Pick<CheckTicket, 'numbers' | 'round'>) {
     setValues(ticket.numbers.map(String));
+    setInputRoundText(String(ticket.round));
+    setInputRoundError(null);
     if (ticket.round === draw.round) {
+      setInputDraw(draw);
       setResult(evaluateTicket(ticket, draw));
-    } else {
-      setResult(null);
+      return;
     }
+    setInputRoundLoading(true);
+    void fetchDraw(ticket.round).then((fetched) => {
+      setInputRoundLoading(false);
+      if (!fetched) {
+        setInputRoundError('해당 회차 정보를 가져올 수 없습니다.');
+        setResult(null);
+        return;
+      }
+      setInputDraw(fetched);
+      setResult(evaluateTicket(ticket, fetched));
+    });
   }
 
   function addTickets(items: Array<{ round: number; numbers: number[]; source: '수기' | 'QR'; purchaseType?: PurchaseType | null }>) {
@@ -154,9 +275,10 @@ function CheckScreen({ draw }: { draw: DrawData }) {
 
   function checkWinning() {
     if (!valid) return;
-    const evaluated = evaluateTicket({ numbers }, draw);
+    const evaluated = evaluateTicket({ numbers }, inputDraw);
     setResult(evaluated);
-    const existing = tickets.find((ticket) => ticket.numbers.join('-') === numbers.slice().sort((a, b) => a - b).join('-') && ticket.round === draw.round);
+    const normalizedKey = numbers.slice().sort((a, b) => a - b).join('-');
+    const existing = tickets.find((ticket) => ticket.numbers.join('-') === normalizedKey && ticket.round === inputDraw.round);
     if (existing) {
       setTickets((current) => current.map((ticket) => ticket.id === existing.id ? {
         ...ticket,
@@ -166,8 +288,8 @@ function CheckScreen({ draw }: { draw: DrawData }) {
         prize: evaluated.prize,
       } : ticket));
     } else {
-      addTickets([{ round: draw.round, numbers, source: '수기', purchaseType: '직접 입력' }]);
-      setTickets((current) => current.map((ticket) => ticket.round === draw.round && ticket.numbers.join('-') === numbers.slice().sort((a, b) => a - b).join('-') && ticket.rank === null ? {
+      const added = addTickets([{ round: inputDraw.round, numbers, source: '수기', purchaseType: '직접 입력' }]);
+      setTickets((current) => current.map((ticket) => ticket.id === added?.id ? {
         ...ticket,
         rank: evaluated.rank,
         matches: evaluated.matches.length,
@@ -233,18 +355,43 @@ function CheckScreen({ draw }: { draw: DrawData }) {
 
 
       <SectionHeader title="번호 직접 입력" />
+      <View style={{ marginTop: 4, marginBottom: 10, padding: 12, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8EB' }}>
+        <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.text }}>입력 회차</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
+          <TextInput
+            value={inputRoundText}
+            onChangeText={(text) => { setInputRoundText(text.replace(/[^0-9]/g, '').slice(0, 4)); setInputRoundError(null); }}
+            keyboardType="number-pad"
+            maxLength={4}
+            placeholder="예: 1242"
+            placeholderTextColor={COLORS.muted}
+            style={{ flex: 1, height: 42, borderWidth: 1, borderColor: '#D7DEE7', borderRadius: 10, paddingHorizontal: 12, fontSize: 14, fontWeight: '800', color: COLORS.text, backgroundColor: '#F9FAFB' }}
+          />
+          <Text style={{ fontSize: 13, color: COLORS.sub, fontWeight: '800' }}>회</Text>
+          <Pressable
+            onPress={() => { void applyInputRound(); }}
+            disabled={inputRoundLoading}
+            style={{ minWidth: 72, height: 42, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: inputRoundLoading ? '#D8E1EC' : COLORS.primary }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '900' }}>{inputRoundLoading ? '조회 중' : '적용'}</Text>
+          </Pressable>
+        </View>
+        <Text style={{ marginTop: 7, fontSize: 11, color: COLORS.muted }}>기본값은 현재 기준 회차입니다. 과거 용지는 해당 회차를 입력해 주세요.</Text>
+        {inputRoundError ? <Text style={{ marginTop: 5, fontSize: 11, color: COLORS.danger, fontWeight: '700' }}>{inputRoundError}</Text> : null}
+        <Text style={{ marginTop: 5, fontSize: 11, color: COLORS.sub, fontWeight: '700' }}>현재 입력 기준: {inputDraw.round}회</Text>
+      </View>
       <View className={tw.inputGrid} style={rnStyle(tw.inputGrid)}>
         {values.map((value, index) => {
-          const matched = Boolean(result && value && draw.numbers.includes(Number(value)));
+          const matched = Boolean(result && value && inputDraw.numbers.includes(Number(value)));
           return <View key={index} className={tw.numberInputWrap} style={rnStyle(tw.numberInputWrap)}><View className={tw.numberInputInner} style={rnStyle(tw.numberInputInner)}><TextInput value={value} onChangeText={(text) => updateValue(index, text)} keyboardType="number-pad" maxLength={2} placeholder={`${index + 1}`} placeholderTextColor={COLORS.muted} className={cn(tw.numberInput, matched && tw.numberInputMatched)} style={[rnStyle(cn(tw.numberInput, matched && tw.numberInputMatched)), matched ? { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.primarySoft, color: COLORS.primary } : undefined]} textAlign="center" />{matched ? <View className={tw.numberInputMatchBadge} style={rnStyle(tw.numberInputMatchBadge)}><Text className={tw.numberInputMatchBadgeText} style={rnStyle(tw.numberInputMatchBadgeText)}>적중</Text></View> : null}</View></View>;
         })}
       </View>
 
       <Text className={tw.helperText} style={rnStyle(tw.helperText)}>각 칸에 1~45 번호를 입력하세요. 같은 번호는 사용할 수 없습니다.</Text>
       {!unique && values.some(Boolean) ? <View className={tw.errorBanner} style={rnStyle(tw.errorBanner)}><Text className={tw.errorBannerText} style={rnStyle(tw.errorBannerText)}>같은 번호를 두 번 입력할 수 없습니다.</Text></View> : null}
-      <Pressable onPress={checkWinning} disabled={!valid} className={cn(tw.generateButton, !valid && tw.generateButtonDisabled, valid && 'active:opacity-[0.82] active:scale-[0.99]')} style={rnStyle(cn(tw.generateButton, !valid && tw.generateButtonDisabled, valid && 'active:opacity-[0.82] active:scale-[0.99]'))}><Text className={tw.generateButtonText} style={rnStyle(tw.generateButtonText)}>당첨 결과 확인 및 저장</Text></Pressable>
+      <Pressable onPress={checkWinning} disabled={!valid || inputRoundLoading} className={cn(tw.generateButton, !valid && tw.generateButtonDisabled, valid && 'active:opacity-[0.82] active:scale-[0.99]')} style={rnStyle(cn(tw.generateButton, !valid && tw.generateButtonDisabled, valid && 'active:opacity-[0.82] active:scale-[0.99]'))}><Text className={tw.generateButtonText} style={rnStyle(tw.generateButtonText)}>당첨 결과 확인 및 저장</Text></Pressable>
 
-      {result ? <View className={tw.checkResultCard} style={rnStyle(tw.checkResultCard)}><View className={tw.checkResultTop} style={rnStyle(tw.checkResultTop)}><View><Text className={tw.checkResultLabel} style={rnStyle(tw.checkResultLabel)}>확인 결과</Text><Text className={cn(tw.checkResultRank, result.rank === '낙첨' && tw.checkResultLose)} style={rnStyle(cn(tw.checkResultRank, result.rank === '낙첨' && tw.checkResultLose))}>{result.rank}</Text></View><View className={tw.matchBadge} style={rnStyle(tw.matchBadge)}><Text className={tw.matchBadgeText} style={rnStyle(tw.matchBadgeText)}>{result.matches.length}개 일치</Text></View></View><View className={tw.checkDivider} style={rnStyle(tw.checkDivider)} /><Text className={tw.checkResultSub} style={rnStyle(tw.checkResultSub)}>당첨번호와 일치한 번호</Text><View className={tw.ballRowCompact} style={rnStyle(tw.ballRowCompact)}>{result.matches.length > 0 ? result.matches.map((number) => <LottoBall key={number} number={number} size="small" />) : <Text className={tw.noMatchText} style={rnStyle(tw.noMatchText)}>일치하는 번호가 없습니다.</Text>}</View>{result.rank === '2등' ? <Text className={tw.bonusNotice} style={rnStyle(tw.bonusNotice)}>보너스 번호 {draw.bonus}도 일치했습니다.</Text> : null}{result.rank !== '낙첨' ? <View className={tw.checkResultPrize} style={rnStyle(tw.checkResultPrize)}><Text className={tw.checkResultPrizeLabel} style={rnStyle(tw.checkResultPrizeLabel)}>당첨금</Text><Text className={tw.checkResultPrizeValue} style={rnStyle(tw.checkResultPrizeValue)}>{result.prize > 0 ? `${result.prize.toLocaleString('ko-KR')}원` : '확인 중'}</Text></View> : null}</View> : null}
+      {result ? <View className={tw.checkResultCard} style={rnStyle(tw.checkResultCard)}><View className={tw.checkResultTop} style={rnStyle(tw.checkResultTop)}><View><Text className={tw.checkResultLabel} style={rnStyle(tw.checkResultLabel)}>확인 결과</Text><Text className={cn(tw.checkResultRank, result.rank === '낙첨' && tw.checkResultLose)} style={rnStyle(cn(tw.checkResultRank, result.rank === '낙첨' && tw.checkResultLose))}>{result.rank}</Text></View><View className={tw.matchBadge} style={rnStyle(tw.matchBadge)}><Text className={tw.matchBadgeText} style={rnStyle(tw.matchBadgeText)}>{result.matches.length}개 일치</Text></View></View><View className={tw.checkDivider} style={rnStyle(tw.checkDivider)} /><Text className={tw.checkResultSub} style={rnStyle(tw.checkResultSub)}>당첨번호와 일치한 번호</Text><View className={tw.ballRowCompact} style={rnStyle(tw.ballRowCompact)}>{result.matches.length > 0 ? result.matches.map((number) => <LottoBall key={number} number={number} size="small" />) : <Text className={tw.noMatchText} style={rnStyle(tw.noMatchText)}>일치하는 번호가 없습니다.</Text>}</View>{result.rank === '2등' ? <Text className={tw.bonusNotice} style={rnStyle(tw.bonusNotice)}>보너스 번호 {inputDraw.bonus}도 일치했습니다.</Text> : null}{result.rank !== '낙첨' ? <View className={tw.checkResultPrize} style={rnStyle(tw.checkResultPrize)}><Text className={tw.checkResultPrizeLabel} style={rnStyle(tw.checkResultPrizeLabel)}>당첨금</Text><Text className={tw.checkResultPrizeValue} style={rnStyle(tw.checkResultPrizeValue)}>{result.prize > 0 ? `${result.prize.toLocaleString('ko-KR')}원` : '확인 중'}</Text></View> : null}</View> : null}
 
       {tickets.length > 0 ? (
         <View className={tw.savedTicketCard} style={rnStyle(tw.savedTicketCard)}>
@@ -266,42 +413,49 @@ function CheckScreen({ draw }: { draw: DrawData }) {
             </View>
             <Text className={tw.savedTicketTotalSub} style={rnStyle(tw.savedTicketTotalSub)}>당첨금 합계 · 수령 상태는 스위치로 변경</Text>
           </View>
-          {tickets.map((ticket) => (
-            <View key={ticket.id} className={cn(tw.savedTicketRow, ticket.claimed && tw.savedTicketRowClaimed)} style={rnStyle(cn(tw.savedTicketRow, ticket.claimed && tw.savedTicketRowClaimed))}>
-              <Pressable onPress={() => toggleSelected(ticket.id)} className={tw.savedTicketCheck} style={rnStyle(tw.savedTicketCheck)}><Text className={selectedIds.includes(ticket.id) ? tw.savedTicketCheckActive : tw.savedTicketCheckText} style={rnStyle(selectedIds.includes(ticket.id) ? tw.savedTicketCheckActive : tw.savedTicketCheckText)}>{selectedIds.includes(ticket.id) ? '✓' : '□'}</Text></Pressable>
-              <Pressable onPress={() => applyTicket(ticket)} className={tw.savedTicketMain} style={rnStyle(tw.savedTicketMain)}>
-                <View className={tw.savedTicketTop} style={rnStyle(tw.savedTicketTop)}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', minWidth: 0, flexShrink: 1 }}>
-                    <Text className={tw.savedTicketRound} style={rnStyle(tw.savedTicketRound)}>{ticket.round}회</Text>
-                    <View style={{ marginLeft: 5, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 6, backgroundColor: '#F2F6FB', borderWidth: 1, borderColor: '#E1E8F0', flexShrink: 0 }}>
-                      <Text style={{ fontSize: 8, lineHeight: 11, fontWeight: '900', color: '#6B7684' }}>{ticket.purchaseType ?? (ticket.source === '수기' ? '직접 입력' : '확인 필요')}</Text>
-                    </View>
-                  </View>
-                  <Text className={ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank} style={rnStyle(ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank)}>{ticket.rank ?? '미확인'}</Text>
-                </View>
-                <View className={tw.savedTicketNumbersRow} style={rnStyle(tw.savedTicketNumbersRow)}>
-                  {ticket.numbers.map((number) => {
-                    const hit = Boolean(ticket.rank && ticket.rank !== '낙첨' && ticket.round === draw.round && draw.numbers.includes(number));
-                    return (
-                      <View key={number} className={cn(tw.savedTicketNumberBall, !hit && tw.savedTicketNumberBallMiss)} style={[rnStyle(cn(tw.savedTicketNumberBall, !hit && tw.savedTicketNumberBallMiss)), hit ? { backgroundColor: getBallColor(number) } : undefined]}>
-                        <Text className={tw.savedTicketNumberBallText} style={rnStyle(tw.savedTicketNumberBallText)}>{number}</Text>
+          {ticketGroups.map((group) => (
+            <View key={group.round}>
+              <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 7, backgroundColor: '#F7F8FA', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#E8EBEF' }}>
+                <Text style={{ fontSize: 13, fontWeight: '900', color: COLORS.text }}>{group.round}회 <Text style={{ fontSize: 11, color: COLORS.muted, fontWeight: '700' }}>· {group.tickets.length}게임</Text></Text>
+              </View>
+              {group.tickets.map((ticket) => (
+                <View key={ticket.id} className={cn(tw.savedTicketRow, ticket.claimed && tw.savedTicketRowClaimed)} style={rnStyle(cn(tw.savedTicketRow, ticket.claimed && tw.savedTicketRowClaimed))}>
+                  <Pressable onPress={() => toggleSelected(ticket.id)} className={tw.savedTicketCheck} style={rnStyle(tw.savedTicketCheck)}><Text className={selectedIds.includes(ticket.id) ? tw.savedTicketCheckActive : tw.savedTicketCheckText} style={rnStyle(selectedIds.includes(ticket.id) ? tw.savedTicketCheckActive : tw.savedTicketCheckText)}>{selectedIds.includes(ticket.id) ? '✓' : '□'}</Text></Pressable>
+                  <Pressable onPress={() => applyTicket(ticket)} className={tw.savedTicketMain} style={rnStyle(tw.savedTicketMain)}>
+                    <View className={tw.savedTicketTop} style={rnStyle(tw.savedTicketTop)}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', minWidth: 0, flexShrink: 1 }}>
+                        <View style={{ marginLeft: 5, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 6, backgroundColor: '#F2F6FB', borderWidth: 1, borderColor: '#E1E8F0', flexShrink: 0 }}>
+                          <Text style={{ fontSize: 8, lineHeight: 11, fontWeight: '900', color: '#6B7684' }}>{ticket.purchaseType ?? (ticket.source === '수기' ? '직접 입력' : '확인 필요')}</Text>
+                        </View>
                       </View>
-                    );
-                  })}
-                </View>
-                <Text className={tw.savedTicketMeta} style={rnStyle(tw.savedTicketMeta)}>{ticket.rank ? `${ticket.matches}개 일치${ticket.bonusMatch ? ' · 보너스 일치' : ''}` : '아직 당첨 결과를 확인하지 않았습니다.'}</Text>
-                {ticket.rank && ticket.rank !== '낙첨' ? <Text className={tw.savedTicketPrize} style={rnStyle(tw.savedTicketPrize)}>당첨금 {ticket.prize > 0 ? `${ticket.prize.toLocaleString('ko-KR')}원` : '확인 중'}</Text> : null}
-              </Pressable>
-              {ticket.rank && ticket.rank !== '낙첨' ? (
-                <View className={tw.claimToggleWrap} style={rnStyle(tw.claimToggleWrap)}>
-                  <Text className={ticket.claimed ? tw.claimedButtonText : tw.unclaimedButtonText} style={rnStyle(ticket.claimed ? tw.claimedButtonText : tw.unclaimedButtonText)}>{ticket.claimed ? '수령' : '미수령'}</Text>
-                  <Pressable onPress={() => toggleClaimed(ticket.id)} accessibilityRole="switch" accessibilityState={{ checked: ticket.claimed }} accessibilityLabel={`수령 상태: ${ticket.claimed ? '수령' : '미수령'}. 누르면 변경됩니다.`} className={ticket.claimed ? tw.claimedButton : tw.unclaimedButton} style={rnStyle(ticket.claimed ? tw.claimedButton : tw.unclaimedButton)}>
-                    <View className={ticket.claimed ? tw.switchTrackOn : tw.switchTrackOff} style={rnStyle(ticket.claimed ? tw.switchTrackOn : tw.switchTrackOff)}>
-                      <View className={tw.switchKnob} style={rnStyle(tw.switchKnob)} />
+                      <Text className={ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank} style={rnStyle(ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank)}>{ticket.rank ?? '미확인'}</Text>
                     </View>
+                    <View className={tw.savedTicketNumbersRow} style={rnStyle(tw.savedTicketNumbersRow)}>
+                      {ticket.numbers.map((number) => {
+                        const ticketDraw = roundDraws[ticket.round];
+                        const hit = Boolean(ticket.rank === '1등' || (ticket.rank && ticket.rank !== '낙첨' && ticketDraw?.numbers.includes(number)));
+                        return (
+                        <View key={number} className={cn(tw.savedTicketNumberBall, !hit && tw.savedTicketNumberBallMiss)} style={[rnStyle(cn(tw.savedTicketNumberBall, !hit && tw.savedTicketNumberBallMiss)), hit ? { backgroundColor: getBallColor(number) } : undefined]}>
+                          <Text className={tw.savedTicketNumberBallText} style={rnStyle(tw.savedTicketNumberBallText)}>{number}</Text>
+                        </View>
+                        );
+                      })}
+                    </View>
+                    <Text className={tw.savedTicketMeta} style={rnStyle(tw.savedTicketMeta)}>{ticket.rank ? `${ticket.matches}개 일치${ticket.bonusMatch ? ' · 보너스 일치' : ''}` : '아직 당첨 결과를 확인하지 않았습니다.'}</Text>
+                    {ticket.rank && ticket.rank !== '낙첨' ? <Text className={tw.savedTicketPrize} style={rnStyle(tw.savedTicketPrize)}>당첨금 {ticket.prize > 0 ? `${ticket.prize.toLocaleString('ko-KR')}원` : '확인 중'}</Text> : null}
                   </Pressable>
+                  {ticket.rank && ticket.rank !== '낙첨' ? (
+                    <View className={tw.claimToggleWrap} style={rnStyle(tw.claimToggleWrap)}>
+                      <Text className={ticket.claimed ? tw.claimedButtonText : tw.unclaimedButtonText} style={rnStyle(ticket.claimed ? tw.claimedButtonText : tw.unclaimedButtonText)}>{ticket.claimed ? '수령' : '미수령'}</Text>
+                      <Pressable onPress={() => toggleClaimed(ticket.id)} accessibilityRole="switch" accessibilityState={{ checked: ticket.claimed }} accessibilityLabel={`수령 상태: ${ticket.claimed ? '수령' : '미수령'}. 누르면 변경됩니다.`} className={ticket.claimed ? tw.claimedButton : tw.unclaimedButton} style={rnStyle(ticket.claimed ? tw.claimedButton : tw.unclaimedButton)}>
+                        <View className={ticket.claimed ? tw.switchTrackOn : tw.switchTrackOff} style={rnStyle(ticket.claimed ? tw.switchTrackOn : tw.switchTrackOff)}>
+                          <View className={tw.switchKnob} style={rnStyle(tw.switchKnob)} />
+                        </View>
+                      </Pressable>
+                    </View>
+                  ) : null}
                 </View>
-              ) : null}
+              ))}
             </View>
           ))}
         </View>

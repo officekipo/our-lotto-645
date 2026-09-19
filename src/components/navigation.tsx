@@ -502,7 +502,7 @@ export function RoundSelector({ round, latestRound, loading, onChange }: { round
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View className={tw.roundModalOverlay} style={rnStyle(tw.roundModalOverlay)}>
-          <View className={tw.roundModalCard} style={rnStyle(tw.roundModalCard)}>
+          <View className={tw.roundModalCard} style={[rnStyle(tw.roundModalCard), { width: '100%', minWidth: 0, maxWidth: 520 }]}>
             <View className={tw.roundModalHeader} style={rnStyle(tw.roundModalHeader)}>
               <View>
                 <Text className={tw.roundModalTitle} style={rnStyle(tw.roundModalTitle)}>조회 회차 선택</Text>
@@ -526,7 +526,7 @@ export function RoundSelector({ round, latestRound, loading, onChange }: { round
             </View>
 
             <Text className={tw.roundModalSectionTitle} style={rnStyle(tw.roundModalSectionTitle)}>직접 입력</Text>
-            <View className={tw.roundManualRow} style={rnStyle(tw.roundManualRow)}>
+            <View className={tw.roundManualRow} style={[rnStyle(tw.roundManualRow), { width: '100%', minWidth: 0, flexDirection: 'row', alignItems: 'center' }]}>
               <TextInput
                 value={input}
                 onChangeText={(value) => { setInput(value.replace(/[^0-9]/g, '').slice(0, 4)); setInputError(''); }}
@@ -534,9 +534,9 @@ export function RoundSelector({ round, latestRound, loading, onChange }: { round
                 maxLength={4}
                 placeholder="회차 입력"
                 placeholderTextColor={COLORS.muted}
-                className={tw.roundManualInput} style={rnStyle(tw.roundManualInput)}
+                className={tw.roundManualInput} style={[rnStyle(tw.roundManualInput), { flex: 1, minWidth: 0, width: 0, height: 46 }]}
               />
-              <Pressable onPress={submitManualRound} className={tw.roundManualButton} style={rnStyle(tw.roundManualButton)}>
+              <Pressable onPress={submitManualRound} className={tw.roundManualButton} style={[rnStyle(tw.roundManualButton), { flexShrink: 0, minWidth: 64, height: 46 }]}>
                 <Text className={tw.roundManualButtonText} style={rnStyle(tw.roundManualButtonText)}>조회</Text>
               </Pressable>
             </View>
