@@ -17,20 +17,21 @@ type ScannedTicket = {
 type CheckTicket = SavedCheckTicket;
 
 function parseLottoQr(raw: string): ScannedTicket[] {
-  // 동행복권 QR은 v= 뒤에 회차 4자리 + 게임 구분 문자 + 12자리(6개 번호)
-  // 구조가 이어집니다. 예: v=1242m011223344546q010203040506...
+  // 동행복권 QR은 v= 뒤에 "회차 4자리 + q + 게임별 12자리 번호"가 이어지고,
+  // 마지막 게임 뒤에는 구매/인증용 부가 데이터가 붙을 수 있습니다.
+  // 따라서 알파벳 구분자로 전체 문자열을 split하면 마지막 게임이 누락될 수 있어
+  // 각 q 뒤의 정확한 12자리만 게임 번호로 추출합니다.
   const valueMatch = raw.match(/[?&]v=([^&]+)/i);
   const payload = decodeURIComponent(valueMatch?.[1] ?? raw).trim();
   const roundMatch = payload.match(/^(\d{4})/);
   if (!roundMatch) return [];
 
   const round = Number(roundMatch[1]);
-  const gamePayload = payload.slice(4);
-  const segments = gamePayload.split(/[A-Za-z]+/).filter(Boolean);
+  const gameMatches = [...payload.slice(4).matchAll(/[A-Za-z]([0-9]{12})/g)];
   const now = Date.now();
 
-  return segments.flatMap((segment, index) => {
-    if (!/^\d{12}$/.test(segment)) return [];
+  return gameMatches.flatMap((match, index) => {
+    const segment = match[1];
     const numbers = Array.from({ length: 6 }, (_, i) => Number(segment.slice(i * 2, i * 2 + 2)));
     const valid = round > 0 && numbers.every((n) => n >= 1 && n <= 45) && new Set(numbers).size === 6;
     if (!valid) return [];
