@@ -270,7 +270,15 @@ function CheckScreen({ draw }: { draw: DrawData }) {
             <View key={ticket.id} className={cn(tw.savedTicketRow, ticket.claimed && tw.savedTicketRowClaimed)} style={rnStyle(cn(tw.savedTicketRow, ticket.claimed && tw.savedTicketRowClaimed))}>
               <Pressable onPress={() => toggleSelected(ticket.id)} className={tw.savedTicketCheck} style={rnStyle(tw.savedTicketCheck)}><Text className={selectedIds.includes(ticket.id) ? tw.savedTicketCheckActive : tw.savedTicketCheckText} style={rnStyle(selectedIds.includes(ticket.id) ? tw.savedTicketCheckActive : tw.savedTicketCheckText)}>{selectedIds.includes(ticket.id) ? '✓' : '□'}</Text></Pressable>
               <Pressable onPress={() => applyTicket(ticket)} className={tw.savedTicketMain} style={rnStyle(tw.savedTicketMain)}>
-                <View className={tw.savedTicketTop} style={rnStyle(tw.savedTicketTop)}><Text className={tw.savedTicketRound} style={rnStyle(tw.savedTicketRound)}>{ticket.round}회</Text><Text className={ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank} style={rnStyle(ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank)}>{ticket.rank ?? '미확인'}</Text></View>
+                <View className={tw.savedTicketTop} style={rnStyle(tw.savedTicketTop)}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', minWidth: 0, flexShrink: 1 }}>
+                    <Text className={tw.savedTicketRound} style={rnStyle(tw.savedTicketRound)}>{ticket.round}회</Text>
+                    <View style={{ marginLeft: 5, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 6, backgroundColor: '#F2F6FB', borderWidth: 1, borderColor: '#E1E8F0', flexShrink: 0 }}>
+                      <Text style={{ fontSize: 8, lineHeight: 11, fontWeight: '900', color: '#6B7684' }}>{ticket.purchaseType ?? (ticket.source === '수기' ? '직접 입력' : '확인 필요')}</Text>
+                    </View>
+                  </View>
+                  <Text className={ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank} style={rnStyle(ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank)}>{ticket.rank ?? '미확인'}</Text>
+                </View>
                 <View className={tw.savedTicketNumbersRow} style={rnStyle(tw.savedTicketNumbersRow)}>
                   {ticket.numbers.map((number) => {
                     const hit = Boolean(ticket.rank && ticket.rank !== '낙첨' && ticket.round === draw.round && draw.numbers.includes(number));
@@ -280,14 +288,6 @@ function CheckScreen({ draw }: { draw: DrawData }) {
                       </View>
                     );
                   })}
-                </View>
-                <View style={rnStyle(tw.purchaseTypeRow)}>
-                  <Text style={rnStyle(tw.purchaseTypeLabel)}>입력 방식</Text>
-                  <View style={rnStyle(tw.purchaseTypeBadge)}>
-                    <Text style={rnStyle(tw.purchaseTypeBadgeText)}>
-                      {ticket.purchaseType ?? (ticket.source === '수기' ? '직접 입력' : '확인 필요')}
-                    </Text>
-                  </View>
                 </View>
                 <Text className={tw.savedTicketMeta} style={rnStyle(tw.savedTicketMeta)}>{ticket.rank ? `${ticket.matches}개 일치${ticket.bonusMatch ? ' · 보너스 일치' : ''}` : '아직 당첨 결과를 확인하지 않았습니다.'}</Text>
                 {ticket.rank && ticket.rank !== '낙첨' ? <Text className={tw.savedTicketPrize} style={rnStyle(tw.savedTicketPrize)}>당첨금 {ticket.prize > 0 ? `${ticket.prize.toLocaleString('ko-KR')}원` : '확인 중'}</Text> : null}

@@ -27,7 +27,21 @@ export function AppIcon({ name, color, size = 22 }: { name: IconName; color?: st
     <Image
       source={ICON_SOURCES[name]}
       resizeMode="contain"
-      style={{ width: size, height: size, ...(color ? { tintColor: color } : {}) }}
+      style={{
+        width: size,
+        height: size,
+        ...(color === COLORS.primary
+          ? Platform.OS === 'web'
+            ? { filter: 'brightness(0) saturate(100%) invert(46%) sepia(98%) saturate(2381%) hue-rotate(197deg) brightness(99%) contrast(96%)' }
+            : { tintColor: color }
+          : color === '#66717F'
+            ? Platform.OS === 'web'
+              ? { filter: 'brightness(0) saturate(100%) invert(43%) sepia(8%) saturate(748%) hue-rotate(176deg) brightness(91%) contrast(87%)' }
+              : { tintColor: color }
+            : color
+              ? { tintColor: color }
+              : {}),
+      } as any}
     />
   );
 }
