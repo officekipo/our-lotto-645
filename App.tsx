@@ -66,7 +66,7 @@ function App() {
   const swipeResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gesture) =>
-        !menuOpenRef.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
+        !menuOpenRef.current && Math.abs(gesture.dx) > 16 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.35,
       onPanResponderMove: (_, gesture) => {
         const target = getSwipeTarget(gesture.dx);
         if (!target) return;
@@ -94,6 +94,7 @@ function App() {
           setSwipeDirection(null);
         });
       },
+      onPanResponderTerminationRequest: () => true,
       onPanResponderTerminate: () => {
         Animated.spring(swipeX, { toValue: 0, damping: 20, stiffness: 240, mass: 0.7, useNativeDriver: true }).start(() => {
           setSwipeTarget(null);
@@ -179,7 +180,7 @@ function App() {
         <View style={mobileFixedRoundSelector}>
           <RoundSelector round={draw.round} latestRound={latestDraw.round} loading={selectedLoading} onChange={setSelectedRound} />
         </View>
-        <Animated.View {...swipeResponder.panHandlers} style={{ flex: 1, width: '100%', minWidth: 0, alignSelf: 'stretch' }}>
+        <Animated.View {...swipeResponder.panHandlers} style={{ flex: 1, width: '100%', minWidth: 0, alignSelf: 'stretch', ...(isMobileWeb ? ({ touchAction: 'pan-y' } as any) : {}) }}>
           <Animated.View style={{ flex: 1, width: '100%', minWidth: 0, transform: [{ translateX: swipeX }] }}>{content}</Animated.View>
           {swipeTarget && swipeDirection ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, width: '100%', transform: [{ translateX: swipeX }, { translateX: swipeDirection === 'left' ? screenWidth : -screenWidth }] }}>{renderContent(swipeTarget)}</Animated.View> : null}
         </Animated.View>
