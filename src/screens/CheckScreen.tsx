@@ -76,14 +76,14 @@ function CheckScreen({ draw }: { draw: DrawData }) {
     }
   }
 
-  function addTickets(items: Array<{ round: number; numbers: number[]; source: '수기' | 'QR' }>) {
+  function addTickets(items: Array<{ round: number; numbers: number[]; source: '수기' | 'QR'; purchaseType?: PurchaseType | null }>) {
     const now = Date.now();
     const additions: CheckTicket[] = items.map((item, index) => ({
       id: `${item.round}-${item.numbers.join('-')}-${now}-${index}`,
       round: item.round,
       numbers: [...item.numbers].sort((a, b) => a - b),
       source: item.source,
-      purchaseType: null,
+      purchaseType: item.purchaseType ?? null,
       rank: null,
       matches: 0,
       bonusMatch: false,
@@ -106,19 +106,21 @@ function CheckScreen({ draw }: { draw: DrawData }) {
     const payload = decodeURIComponent(valueMatch?.[1] ?? data).trim();
     const roundMatch = payload.match(/^(\d{4})/);
     const round = roundMatch ? Number(roundMatch[1]) : 0;
-    const gameMatches = [...payload.slice(4).matchAll(/[A-Za-z]([0-9]{12})/g)];
+    const gameMatches = [...payload.slice(4).matchAll(/([A-Za-z])([0-9]{12})/g)];
     const parsed = gameMatches.flatMap((match) => {
-      const segment = match[1];
+      const modeCode = match[1].toLowerCase();
+      const segment = match[2];
       const numbers = Array.from({ length: 6 }, (_, i) => Number(segment.slice(i * 2, i * 2 + 2)));
+      const purchaseType: PurchaseType | null = modeCode === 'q' ? '자동' : modeCode === 'm' ? '수동' : null;
       const valid = round > 0 && numbers.every((n) => n >= 1 && n <= 45) && new Set(numbers).size === 6;
-      return valid ? [{ round, numbers: numbers.sort((a, b) => a - b) }] : [];
+      return valid ? [{ round, numbers: numbers.sort((a, b) => a - b), purchaseType }] : [];
     });
     if (!parsed.length) {
       scanningRef.current = false;
       Alert.alert('QR을 읽었지만 번호를 찾지 못했습니다.', '로또 6/45 구매용 QR인지 확인해 주세요.');
       return;
     }
-    addTickets(parsed.map((ticket) => ({ round: ticket.round, numbers: ticket.numbers, source: 'QR' as const })));
+    addTickets(parsed.map((ticket) => ({ round: ticket.round, numbers: ticket.numbers, source: 'QR' as const, purchaseType: ticket.purchaseType })));
     setScannerOpen(false);
     scanningRef.current = false;
   }
@@ -286,13 +288,21 @@ function CheckScreen({ draw }: { draw: DrawData }) {
                 <View style={rnStyle(tw.purchaseTypeRow)}>
                   <Text style={rnStyle(tw.purchaseTypeLabel)}>구매 방식</Text>
                   <View style={rnStyle(tw.purchaseTypeButtons)}>
-                    {(['자동', '수동'] as PurchaseType[]).map((type) => {
-                      const selected = ticket.purchaseType === type;
-                      return <Pressable key={type} onPress={(event) => { event.stopPropagation(); setPurchaseType(ticket.id, type); }} style={[rnStyle(tw.purchaseTypeButton), selected ? rnStyle(tw.purchaseTypeButtonActive) : undefined]}>
-                        <Text style={[rnStyle(tw.purchaseTypeButtonText), selected ? rnStyle(tw.purchaseTypeButtonTextActive) : undefined]}>{type}</Text>
-                      </Pressable>;
-                    })}
-                    {!ticket.purchaseType ? <Text style={rnStyle(tw.purchaseTypeUnset)}>선택 필요</Text> : null}
+                    {ticket.purchaseType ? (
+                      <View style={rnStyle(tw.purchaseTypeBadge)}>
+                        <Text style={rnStyle(tw.purchaseTypeBadgeText)}>{ticket.purchaseType}</Text>
+                      </View>
+                    ) : (
+                      <>
+                        {(['자동', '수동'] as PurchaseType[]).map((type) => {
+                          const selected = ticket.purchaseType === type;
+                          return <Pressable key={type} onPress={(event) => { event.stopPropagation(); setPurchaseType(ticket.id, type); }} style={rnStyle(tw.purchaseTypeButton)}>
+                            <Text style={rnStyle(tw.purchaseTypeButtonText)}>{type}</Text>
+                          </Pressable>;
+                        })}
+                        <Text style={rnStyle(tw.purchaseTypeUnset)}>선택 필요</Text>
+                      </>
+                    )}
                   </View>
                 </View>
                 <Text className={tw.savedTicketMeta} style={rnStyle(tw.savedTicketMeta)}>{ticket.rank ? `${ticket.matches}개 일치${ticket.bonusMatch ? ' · 보너스 일치' : ''}` : '아직 당첨 결과를 확인하지 않았습니다.'}</Text>
