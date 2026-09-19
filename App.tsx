@@ -163,18 +163,30 @@ function App() {
   };
 
   const content = renderContent(tab);
+  const isMobileWeb = Platform.OS === 'web' && Dimensions.get('window').width <= 600;
+  const mobileFixedHeader = isMobileWeb ? ({ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 } as any) : undefined;
+  const mobileFixedRoundSelector = isMobileWeb ? ({ position: 'fixed', top: 60, left: 0, right: 0, zIndex: 49 } as any) : undefined;
+  const mobileFixedBottomNav = isMobileWeb ? ({ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50 } as any) : undefined;
+  const mobileContentOffset = isMobileWeb ? { paddingTop: 124, paddingBottom: 66 } : undefined;
+
   return <SafeAreaView className={tw.safeArea} style={{ flex: 1, width: '100%', height: '100%', alignSelf: 'stretch' }}>
     <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
     <View className={tw.app} style={{ flex: 1, width: '100%', minWidth: 0, alignSelf: 'stretch', ...(Platform.OS === 'web' ? { overflowX: 'hidden' } : {}) }}>
-      <AppHeader onHome={() => { changeTab('home'); setMenuOpen(false); }} onMenu={() => setMenuOpen(true)} />
-      <View className={tw.content} style={{ flex: 1, width: '100%', minWidth: 0, alignSelf: 'stretch' }}>
-        <RoundSelector round={draw.round} latestRound={latestDraw.round} loading={selectedLoading} onChange={setSelectedRound} />
+      <View style={mobileFixedHeader}>
+        <AppHeader onHome={() => { changeTab('home'); setMenuOpen(false); }} onMenu={() => setMenuOpen(true)} />
+      </View>
+      <View className={tw.content} style={{ flex: 1, width: '100%', minWidth: 0, alignSelf: 'stretch', ...mobileContentOffset }}>
+        <View style={mobileFixedRoundSelector}>
+          <RoundSelector round={draw.round} latestRound={latestDraw.round} loading={selectedLoading} onChange={setSelectedRound} />
+        </View>
         <Animated.View {...swipeResponder.panHandlers} style={{ flex: 1, width: '100%', minWidth: 0, alignSelf: 'stretch' }}>
           <Animated.View style={{ flex: 1, width: '100%', minWidth: 0, transform: [{ translateX: swipeX }] }}>{content}</Animated.View>
           {swipeTarget && swipeDirection ? <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, width: '100%', transform: [{ translateX: swipeX }, { translateX: swipeDirection === 'left' ? screenWidth : -screenWidth }] }}>{renderContent(swipeTarget)}</Animated.View> : null}
         </Animated.View>
       </View>
-      <BottomNavigation active={tab} onChange={changeTab} />
+      <View style={mobileFixedBottomNav}>
+        <BottomNavigation active={tab} onChange={changeTab} />
+      </View>
       <MenuModal visible={menuOpen} onClose={() => setMenuOpen(false)} />
     </View>
   </SafeAreaView>;
