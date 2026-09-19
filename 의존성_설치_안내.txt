@@ -1,0 +1,15 @@
+LOTTO NATIVE Phase 8 의존성 설치
+
+현재 오류 원인:
+node_modules에 expo-camera가 설치되어 있지 않습니다. package.json에는 이미 expo-camera가 선언되어 있습니다.
+
+Windows:
+1. 프로젝트 폴더에서 setup-windows.bat 실행
+2. 또는 아래 명령 실행
+
+   rmdir /s /q node_modules
+   npm install
+   npx expo install --check
+   npm run web
+
+Expo SDK 57 + expo-camera ~57.0.4 기준입니다.

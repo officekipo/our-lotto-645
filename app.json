@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "우리의 6/45",
+    "slug": "our-lotto-645",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFF6D8"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "icon": "./assets/icon.png",
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "우리의 6/45에서 QR 번호 확인을 위해 카메라를 사용합니다.",
+          "barcodeScannerEnabled": true
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,68 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --lotto-bg: #f7f8fa;
+  --lotto-card: #ffffff;
+  --lotto-text: #191f28;
+  --lotto-sub: #6b7684;
+  --lotto-muted: #8b95a1;
+  --lotto-line: #e5e8eb;
+  --lotto-primary: #3182f6;
+  --lotto-primary-soft: #eaf3ff;
+  --lotto-danger: #e5484d;
+  --lotto-danger-soft: #fff1f1;
+  --lotto-radius-card: 20px;
+  --lotto-radius-control: 14px;
+  --lotto-shadow: 0 4px 16px rgba(25, 31, 40, 0.06);
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  overflow-x: hidden;
+  background: var(--lotto-bg);
+  color: var(--lotto-text);
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '맑은 고딕', 'Malgun Gothic', sans-serif;
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+}
+
+.font-pretendard {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, '맑은 고딕', 'Malgun Gothic', sans-serif;
+  word-break: keep-all;
+}
+
+* {
+  box-sizing: border-box;
+  word-break: keep-all;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: #dcecff;
+  color: #172033;
+}
