@@ -1,7 +1,6 @@
 import type { WinnerStore } from '../types/lotto';
 
 const API_BASE = 'https://www.dhlottery.co.kr/wnprchsplcsrch/selectLtWnShp.do';
-const WINNER_STORE_TIMEOUT_MS = 8000;
 const cache = new Map<string, WinnerStore[]>();
 
 export type { WinnerStore } from '../types/lotto';
@@ -12,12 +11,12 @@ async function fetchWinnerStores(round: number, rank: 1 | 2): Promise<WinnerStor
   if (cached) return cached;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), WINNER_STORE_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
   let response: Response;
   try {
     response = await fetch(`${API_BASE}?srchWnShpRnk=${rank}&srchLtEpsd=${round}`, { signal: controller.signal });
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timeoutId);
   }
   if (!response.ok) throw new Error(`Winner store API error: ${response.status}`);
   const json = await response.json();

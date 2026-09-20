@@ -28,8 +28,8 @@ function TaxScreen({ draw }: { draw: DrawData }) {
   const received = Math.max(0, parsed - tax);
   const effectiveTaxRate = parsed > 0 ? (tax / parsed) * 100 : 0;
   const receivedRate = parsed > 0 ? (received / parsed) * 100 : 0;
-  const { width } = useWindowDimensions();
-  const isNarrow = width <= 390;
+  const { width: windowWidth } = useWindowDimensions();
+  const isNarrow = windowWidth <= 390;
 
   const formatMoney = (value: number) => `${Math.round(value).toLocaleString('ko-KR')}원`;
 
