@@ -3,6 +3,7 @@ import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
 import { CameraView, useCameraPermissions } from '../platform/camera';
 import * as Clipboard from '../platform/clipboard';
 import { loadCheckTickets, saveCheckTickets, type SavedCheckTicket } from '../storage/checkTickets';
+import { fetchDraw } from '../services/lottoApi';
 import { tw } from '../../App.tw';
 import { cn } from '../styles/cn';
 import { COLORS, DrawData, Text, TextInput, LottoBall, PageHeader, SectionHeader, rnStyle, getBallColor } from '../components/common';
@@ -81,8 +82,35 @@ function CheckScreen({ draw }: { draw: DrawData }) {
   }, []);
 
   useEffect(() => {
-    if (storageReady) void saveCheckTickets(tickets);
-  }, [tickets, storageReady]);
+    if (!storageReady || tickets.length === 0) return;
+
+    let cancelled = false;
+    const unresolvedRounds = Array.from(
+      new Set(tickets.filter((ticket) => ticket.rank === null).map((ticket) => ticket.round))
+    );
+
+    if (unresolvedRounds.length === 0) return;
+
+    (async () => {
+      const results = await Promise.all(
+        unresolvedRounds.map(async (round) => ({ round, draw: await fetchDraw(round) }))
+      );
+      if (cancelled) return;
+
+      const drawMap = new Map(results.filter((item) => item.draw).map((item) => [item.round, item.draw!]));
+      if (drawMap.size === 0) return;
+
+      setTickets((current) => current.map((ticket) => {
+        if (ticket.rank !== null) return ticket;
+        const ticketDraw = drawMap.get(ticket.round);
+        if (!ticketDraw) return ticket;
+        const evaluated = evaluateTicket(ticket, ticketDraw);
+        return { ...ticket, matches: evaluated.matches.length, rank: evaluated.rank, bonusMatch: evaluated.bonusMatch, prize: evaluated.prize };
+      }));
+    })();
+
+    return () => { cancelled = true; };
+  }, [storageReady, tickets]);
 
   function applyTicket(ticket: Pick<CheckTicket, 'numbers' | 'round'>) {
     setValues(ticket.numbers.map(String));
