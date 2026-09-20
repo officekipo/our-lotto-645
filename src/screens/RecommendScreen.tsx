@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
 import { fetchHistory as fetchHistoryFromService } from '../services/lottoApi';
-import { loadRecommendSavedData, saveRecommendSavedData, type RecommendSavedData } from '../storage/recommendSettings';
+import { loadRecommendSavedData, saveRecommendSavedData, type RecommendSavedData, type RecommendStrategyKey } from '../storage/recommendSettings';
 import { tw } from '../../App.tw';
 import { cn } from '../styles/cn';
 import { COLORS, DrawData, Text, TextInput, LottoBall, PageHeader, SelectionSummary, SectionHeader, rnStyle } from '../components/common';
 
 type HistoryDraw = DrawData;
 type RecommendPeriod = 10 | 30 | 50 | 100 | 300 | 500 | 1000;
-type RecommendStrategy = 'random' | 'hot' | 'cold' | 'average' | 'parityHot';
+type RecommendStrategy = RecommendStrategyKey;
 type CountKey = 3 | 5 | 10;
 
 function shuffle(numbers: number[]) {
@@ -193,13 +193,13 @@ function RecommendScreen({ draw }: { draw: DrawData }) {
 
   async function saveMyNumber(numbers: number[]) {
     const normalized = [...numbers].sort((a, b) => a - b);
-    if (saved.myNumbers.some((item) => item.join(',') === normalized.join(','))) return;
-    await persist({ ...saved, myNumbers: [normalized, ...saved.myNumbers].slice(0, 30) });
+    if (saved.myNumbers.some((item) => item.numbers.join(',') === normalized.join(','))) return;
+    await persist({ ...saved, myNumbers: [{ numbers: normalized, strategy }, ...saved.myNumbers].slice(0, 30) });
   }
 
   async function deleteMyNumber(numbers: number[]) {
     const key = numbers.join(',');
-    await persist({ ...saved, myNumbers: saved.myNumbers.filter((item) => item.join(',') !== key) });
+    await persist({ ...saved, myNumbers: saved.myNumbers.filter((item) => item.numbers.join(',') !== key) });
   }
 
   async function saveRequired() {
@@ -214,7 +214,6 @@ function RecommendScreen({ draw }: { draw: DrawData }) {
 
   function loadRequired() { setRequired(saved.required.filter((number) => !excluded.includes(number)).slice(0, 6)); }
   function loadExcluded() { setExcluded(saved.excluded.filter((number) => !required.includes(number))); }
-  function applyMyNumber(numbers: number[]) { setRequired([...numbers]); setExcluded([]); setSelectionMode('required'); }
 
   const strategyItems: { key: RecommendStrategy; title: string; description: string }[] = [
     { key: 'random', title: '기본 생성', description: '필수·제외 조건만 반영' },
@@ -310,14 +309,28 @@ function RecommendScreen({ draw }: { draw: DrawData }) {
             <Pressable onPress={loadRequired} disabled={!saved.required.length} style={{ flex: 1, minHeight: 34, borderRadius: 10, borderWidth: 1, borderColor: COLORS.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.sub }}>필수 불러오기</Text></Pressable>
             <Pressable onPress={loadExcluded} disabled={!saved.excluded.length} style={{ flex: 1, minHeight: 34, borderRadius: 10, borderWidth: 1, borderColor: COLORS.line, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.sub }}>제외 불러오기</Text></Pressable>
           </View>
-          {saved.myNumbers.length ? <View style={{ gap: 7 }}>
-            <Text style={{ fontSize: 11, fontWeight: '900', color: COLORS.text }}>내 번호</Text>
-            {saved.myNumbers.slice(0, 5).map((numbers) => <View key={numbers.join('-')} style={{ minHeight: 44, paddingHorizontal: 8, borderRadius: 12, backgroundColor: '#F7F8FA', flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ flex: 1, fontSize: 11, fontWeight: '800', color: COLORS.text }}>{numbers.join(' · ')}</Text>
-              <Pressable onPress={() => applyMyNumber(numbers)} style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 9, backgroundColor: COLORS.primarySoft }}><Text style={{ fontSize: 10, fontWeight: '900', color: COLORS.primary }}>적용</Text></Pressable>
-              <Pressable onPress={() => deleteMyNumber(numbers)} style={{ marginLeft: 5, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 9, backgroundColor: '#FFFFFF' }}><Text style={{ fontSize: 10, fontWeight: '900', color: COLORS.danger }}>삭제</Text></Pressable>
-            </View>)}
-          </View> : <Text style={{ fontSize: 11, color: COLORS.muted }}>생성 결과에서 ‘내 번호 저장’을 누르면 여기에 보관됩니다.</Text>}
+          {saved.myNumbers.length ? (() => {
+            const strategyGroups = [...strategyItems.map((item) => ({ key: item.key, title: item.title })), { key: 'legacy', title: '기존 저장 번호' }]
+              .map((group) => ({ ...group, items: saved.myNumbers.filter((item) => (item.strategy ?? 'legacy') === group.key) }))
+              .filter((group) => group.items.length > 0);
+            return <View style={{ marginTop: 12, gap: 14 }}>
+              <Text style={{ fontSize: 11, fontWeight: '900', color: COLORS.text }}>내 번호</Text>
+              {strategyGroups.map((group) => (
+                <View key={group.key} style={{ gap: 7 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 11, fontWeight: '900', color: COLORS.sub }}>{group.title}</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.muted }}>{group.items.length}개</Text>
+                  </View>
+                  {group.items.map((item) => (
+                    <View key={item.numbers.join('-')} style={{ minHeight: 48, paddingHorizontal: 8, paddingVertical: 7, borderRadius: 12, backgroundColor: '#F7F8FA', flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ flex: 1, minWidth: 0, fontSize: 11, fontWeight: '800', color: COLORS.text }}>{item.numbers.join(' · ')}</Text>
+                      <Pressable onPress={() => deleteMyNumber(item.numbers)} style={{ marginLeft: 8, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 9, backgroundColor: '#FFFFFF' }}><Text style={{ fontSize: 10, fontWeight: '900', color: COLORS.danger }}>삭제</Text></Pressable>
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </View>;
+          })() : <Text style={{ marginTop: 12, fontSize: 11, color: COLORS.muted }}>생성 결과에서 ‘내 번호로 저장’을 누르면 여기에 보관됩니다.</Text>}
         </View> : null}
       </View>
 
@@ -340,7 +353,7 @@ function RecommendScreen({ draw }: { draw: DrawData }) {
       <Pressable onPress={generate} disabled={!canGenerate || historyLoading && strategy !== 'random'} className={cn(tw.generateButton, (!canGenerate || historyLoading && strategy !== 'random') && tw.generateButtonDisabled)} style={rnStyle(cn(tw.generateButton, (!canGenerate || historyLoading && strategy !== 'random') && tw.generateButtonDisabled))}><Text className={tw.generateButtonText} style={rnStyle(tw.generateButtonText)}>{historyLoading && strategy !== 'random' ? '통계 불러오는 중' : `${count}세트 생성하기`}</Text></Pressable>
 
       {sets.length > 0 ? <View style={{ marginTop: 28 }} onLayout={(event) => { resultYRef.current = event.nativeEvent.layout.y; }}><SectionHeader title="생성 결과" /><View className={tw.resultStack} style={[rnStyle(tw.resultStack), { rowGap: 12 }]}>{sets.map((set, index) => {
-        const isSaved = saved.myNumbers.some((item) => item.join(',') === set.join(','));
+        const isSaved = saved.myNumbers.some((item) => item.numbers.join(',') === set.join(','));
         return <View key={`${set.join('-')}-${index}`} className={tw.resultCard} style={rnStyle(tw.resultCard)}>
           <View className={tw.resultHeader} style={rnStyle(tw.resultHeader)}><Text className={tw.resultIndex} style={rnStyle(tw.resultIndex)}>{index + 1}번 조합</Text><Text className={tw.resultSub} style={rnStyle(tw.resultSub)}>{strategyItems.find((item) => item.key === strategy)?.title}</Text></View>
           <View className={tw.ballRow} style={rnStyle(tw.ballRow)}>{set.map((number) => <LottoBall key={number} number={number} size="small" />)}</View>

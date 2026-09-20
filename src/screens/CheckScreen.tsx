@@ -111,8 +111,9 @@ function CheckScreen({ draw }: { draw: DrawData }) {
     setTickets((current) => {
       let changed = false;
       const next = current.map((ticket) => {
-        if (ticket.round !== draw.round) return ticket;
-        const evaluated = evaluateTicket(ticket, draw);
+        const ticketDraw = roundDraws[ticket.round];
+        if (!ticketDraw) return ticket;
+        const evaluated = evaluateTicket(ticket, ticketDraw);
         if (
           ticket.rank === evaluated.rank &&
           ticket.matches === evaluated.matches.length &&
@@ -132,7 +133,7 @@ function CheckScreen({ draw }: { draw: DrawData }) {
       });
       return changed ? next : current;
     });
-  }, [draw, tickets.length]);
+  }, [roundDraws, tickets.length]);
 
   const ticketGroups = useMemo(() => {
     const grouped = new Map<number, CheckTicket[]>();
@@ -357,7 +358,7 @@ function CheckScreen({ draw }: { draw: DrawData }) {
       <SectionHeader title="번호 직접 입력" />
       <View style={{ marginTop: 4, marginBottom: 10, padding: 12, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8EB' }}>
         <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.text }}>입력 회차</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8, width: '100%', minWidth: 0 }}>
           <TextInput
             value={inputRoundText}
             onChangeText={(text) => { setInputRoundText(text.replace(/[^0-9]/g, '').slice(0, 4)); setInputRoundError(null); }}
@@ -365,7 +366,7 @@ function CheckScreen({ draw }: { draw: DrawData }) {
             maxLength={4}
             placeholder="예: 1242"
             placeholderTextColor={COLORS.muted}
-            style={{ flex: 1, height: 42, borderWidth: 1, borderColor: '#D7DEE7', borderRadius: 10, paddingHorizontal: 12, fontSize: 14, fontWeight: '800', color: COLORS.text, backgroundColor: '#F9FAFB' }}
+            style={{ flex: 1, flexShrink: 1, minWidth: 0, width: 0, height: 42, borderWidth: 1, borderColor: '#D7DEE7', borderRadius: 10, paddingHorizontal: 12, fontSize: 14, fontWeight: '800', color: COLORS.text, backgroundColor: '#F9FAFB' }}
           />
           <Text style={{ fontSize: 13, color: COLORS.sub, fontWeight: '800' }}>회</Text>
           <Pressable
@@ -433,9 +434,11 @@ function CheckScreen({ draw }: { draw: DrawData }) {
                     <View className={tw.savedTicketNumbersRow} style={rnStyle(tw.savedTicketNumbersRow)}>
                       {ticket.numbers.map((number) => {
                         const ticketDraw = roundDraws[ticket.round];
-                        const hit = Boolean(ticket.rank === '1등' || (ticket.rank && ticket.rank !== '낙첨' && ticketDraw?.numbers.includes(number)));
+                        const mainHit = Boolean(ticketDraw?.numbers.includes(number));
+                        const bonusHit = Boolean(ticketDraw?.bonus === number && ticket.bonusMatch);
+                        const hit = mainHit || bonusHit;
                         return (
-                        <View key={number} className={cn(tw.savedTicketNumberBall, !hit && tw.savedTicketNumberBallMiss)} style={[rnStyle(cn(tw.savedTicketNumberBall, !hit && tw.savedTicketNumberBallMiss)), hit ? { backgroundColor: getBallColor(number) } : undefined]}>
+                        <View key={number} className={cn(tw.savedTicketNumberBall, !hit && tw.savedTicketNumberBallMiss)} style={[rnStyle(cn(tw.savedTicketNumberBall, !hit && tw.savedTicketNumberBallMiss)), hit ? { backgroundColor: getBallColor(number), ...(bonusHit ? { borderWidth: 2, borderColor: '#111827' } : {}) } : undefined]}>
                           <Text className={tw.savedTicketNumberBallText} style={rnStyle(tw.savedTicketNumberBallText)}>{number}</Text>
                         </View>
                         );

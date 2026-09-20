@@ -1,6 +1,6 @@
 import "./global.css";
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Platform, PanResponder, SafeAreaView, StatusBar, View } from 'react-native';
+import { Animated, Platform, PanResponder, SafeAreaView, StatusBar, View, useWindowDimensions } from 'react-native';
 import { fetchDraw } from './src/services/lottoApi';
 import { useLatestDraw as useLatestDrawFromService } from './src/hooks/useLatestDraw';
 import {
@@ -51,7 +51,10 @@ function App() {
   const tabRef = useRef<TabKey>(tab);
   const menuOpenRef = useRef(menuOpen);
   const tabOrder: TabKey[] = ['home', 'recommend', 'stats', 'check', 'more'];
-  const screenWidth = Math.max(320, Dimensions.get('window').width);
+  const { width: windowWidth } = useWindowDimensions();
+  const screenWidth = Math.max(320, windowWidth);
+  const screenWidthRef = useRef(screenWidth);
+  screenWidthRef.current = screenWidth;
   tabRef.current = tab;
   menuOpenRef.current = menuOpen;
 
@@ -73,7 +76,7 @@ function App() {
         const direction = gesture.dx < 0 ? 'left' : 'right';
         setSwipeTarget(target);
         setSwipeDirection(direction);
-        swipeX.setValue(Math.max(-screenWidth, Math.min(screenWidth, gesture.dx)));
+        swipeX.setValue(Math.max(-screenWidthRef.current, Math.min(screenWidthRef.current, gesture.dx)));
       },
       onPanResponderRelease: (_, gesture) => {
         const target = getSwipeTarget(gesture.dx);
@@ -85,7 +88,7 @@ function App() {
           return;
         }
         const direction = gesture.dx < 0 ? 'left' : 'right';
-        const destination = direction === 'left' ? -screenWidth : screenWidth;
+        const destination = direction === 'left' ? -screenWidthRef.current : screenWidthRef.current;
         Animated.timing(swipeX, { toValue: destination, duration: 180, useNativeDriver: true }).start(({ finished }) => {
           if (!finished) return;
           setTab(target);
@@ -164,7 +167,7 @@ function App() {
   };
 
   const content = renderContent(tab);
-  const isMobileWeb = Platform.OS === 'web' && Dimensions.get('window').width <= 600;
+  const isMobileWeb = Platform.OS === 'web' && windowWidth <= 600;
   const mobileFixedHeader = isMobileWeb ? ({ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 } as any) : undefined;
   const mobileFixedRoundSelector = isMobileWeb ? ({ position: 'fixed', top: 60, left: 0, right: 0, zIndex: 49 } as any) : undefined;
   const mobileFixedBottomNav = isMobileWeb ? ({ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50 } as any) : undefined;

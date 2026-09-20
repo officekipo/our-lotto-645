@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { tw } from '../../App.tw';
 import { cn } from '../styles/cn';
 import { COLORS, DrawData, Text, TextInput, PageHeader, SectionHeader, rnStyle } from '../components/common';
@@ -28,7 +28,8 @@ function TaxScreen({ draw }: { draw: DrawData }) {
   const received = Math.max(0, parsed - tax);
   const effectiveTaxRate = parsed > 0 ? (tax / parsed) * 100 : 0;
   const receivedRate = parsed > 0 ? (received / parsed) * 100 : 0;
-  const isNarrow = Dimensions.get('window').width <= 340;
+  const { width } = useWindowDimensions();
+  const isNarrow = width <= 390;
 
   const formatMoney = (value: number) => `${Math.round(value).toLocaleString('ko-KR')}원`;
 

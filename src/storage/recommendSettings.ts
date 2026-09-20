@@ -1,7 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export type RecommendStrategyKey = 'random' | 'hot' | 'cold' | 'average' | 'parityHot';
+
+export type SavedMyNumber = {
+  numbers: number[];
+  strategy?: RecommendStrategyKey;
+};
+
 export type RecommendSavedData = {
-  myNumbers: number[][];
+  myNumbers: SavedMyNumber[];
   required: number[];
   excluded: number[];
 };
@@ -16,7 +23,14 @@ export async function loadRecommendSavedData(): Promise<RecommendSavedData> {
     const parsed = JSON.parse(raw) as Partial<RecommendSavedData>;
     return {
       myNumbers: Array.isArray(parsed.myNumbers)
-        ? parsed.myNumbers.filter((numbers): numbers is number[] => Array.isArray(numbers) && numbers.length === 6)
+        ? parsed.myNumbers.map((item) => {
+            if (Array.isArray(item) && item.length === 6) return { numbers: item.filter(Number.isInteger) } as SavedMyNumber;
+            if (item && typeof item === 'object' && Array.isArray((item as any).numbers)) {
+              const numbers = (item as any).numbers.filter(Number.isInteger);
+              return numbers.length === 6 ? { numbers, strategy: (item as any).strategy } : null;
+            }
+            return null;
+          }).filter((item): item is SavedMyNumber => !!item && item.numbers.length === 6)
         : [],
       required: Array.isArray(parsed.required) ? parsed.required.filter(Number.isInteger).slice(0, 6) : [],
       excluded: Array.isArray(parsed.excluded) ? parsed.excluded.filter(Number.isInteger) : [],

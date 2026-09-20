@@ -1,7 +1,18 @@
 import React from 'react';
-import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text as RNText, TextInput as RNTextInput, View } from 'react-native';
+import { Dimensions, Image, Platform, Pressable, ScrollView, StyleSheet, Text as RNText, TextInput as RNTextInput, View } from 'react-native';
 import { tw } from '../../App.tw';
 import { cn } from '../styles/cn';
+
+let currentWidth = Dimensions.get('window').width;
+const updateResponsiveWidth = (width: number) => {
+  currentWidth = width;
+  styles = createStyles(currentWidth);
+};
+Dimensions.addEventListener('change', ({ window }) => updateResponsiveWidth(window.width));
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  window.addEventListener('resize', () => updateResponsiveWidth(window.innerWidth));
+}
+
 
 export type TabKey = 'home' | 'recommend' | 'stats' | 'check' | 'more';
 export type DrawData = import('../types/lotto').DrawData;
@@ -67,7 +78,7 @@ export function rnStyle(...classNames: Array<string | false | null | undefined>)
     let m = token.match(/^(p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap)-\[(-?[\d.]+)px\]$/);
     if (m) {
       const p=m[1], raw=n(m[2]);
-      const compact = Dimensions.get('window').width <= 340;
+      const compact = currentWidth <= 390;
       const v = compact
         ? (p === 'px' ? (raw >= 28 ? 16 : raw >= 18 ? 14 : raw >= 16 ? 14 : raw) : p === 'gap' ? (raw >= 8 ? 6 : raw) : raw)
         : raw;
@@ -76,7 +87,7 @@ export function rnStyle(...classNames: Array<string | false | null | undefined>)
     }
     m = token.match(/^(w|h|min-w|max-w|min-h|max-h)-\[(.+)\]$/);
     if (m) {
-      const raw=m[2], compact = Dimensions.get('window').width <= 340;
+      const raw=m[2], compact = currentWidth <= 390;
       let v:any=raw==='full'?'100%':raw.endsWith('px')?n(raw):raw;
       if (compact && m[1] === 'min-w' && Number(v) >= 120) v = 0;
       const map:any={w:'width',h:'height','min-w':'minWidth','max-w':'maxWidth','min-h':'minHeight','max-h':'maxHeight'};
@@ -158,8 +169,8 @@ export function SelectionSummary({ title, values, color }: { title: string; valu
 
 export function LottoBall({ number, size = 'normal' }: { number: number; size?: 'normal' | 'small' }) {
   return (
-    <View style={[styles.ball, size === 'small' && { width: Dimensions.get('window').width <= 340 ? 32 : 36, height: Dimensions.get('window').width <= 340 ? 32 : 36, borderRadius: Dimensions.get('window').width <= 340 ? 16 : 18 } as any, { backgroundColor: getBallColor(number) }]}>
-      <Text style={[styles.ballText, size === 'small' && { fontSize: Dimensions.get('window').width <= 340 ? 11 : 12, lineHeight: Dimensions.get('window').width <= 340 ? 14 : 16 }]}>{number}</Text>
+    <View style={[styles.ball, size === 'small' && { width: currentWidth <= 390 ? 32 : 36, height: currentWidth <= 390 ? 32 : 36, borderRadius: currentWidth <= 390 ? 16 : 18 } as any, { backgroundColor: getBallColor(number) }]}>
+      <Text style={[styles.ballText, size === 'small' && { fontSize: currentWidth <= 390 ? 11 : 12, lineHeight: currentWidth <= 390 ? 14 : 16 }]}>{number}</Text>
     </View>
   );
 }
@@ -193,27 +204,29 @@ export function SectionHeader({ title }: { title: string }) {
 
 
 
-export const styles = StyleSheet.create({
-  header: { height: Dimensions.get('window').width <= 600 ? 60 : 76, paddingHorizontal: Dimensions.get('window').width <= 340 ? 16 : 28, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#EEF1F4' },
-  logoButton: { flexDirection: 'row', alignItems: 'center', gap: Dimensions.get('window').width <= 600 ? 8 : 10 },
-  logoMark: { width: Dimensions.get('window').width <= 600 ? 36 : 48, height: Dimensions.get('window').width <= 600 ? 36 : 48, borderRadius: Dimensions.get('window').width <= 600 ? 12 : 16, backgroundColor: '#FFF4C7', overflow: 'hidden', borderWidth: 1, borderColor: '#F5E6A6' },
-  logoImage: { width: Dimensions.get('window').width <= 600 ? 36 : 48, height: Dimensions.get('window').width <= 600 ? 36 : 48 },
-  logoLabel: { fontSize: Dimensions.get('window').width <= 600 ? 9 : 12, lineHeight: Dimensions.get('window').width <= 600 ? 12 : 15, fontWeight: '900', letterSpacing: 0.4, color: '#3182F6' },
-  logoTitle: { marginTop: 0, fontSize: Dimensions.get('window').width <= 600 ? 17 : 21, lineHeight: Dimensions.get('window').width <= 600 ? 21 : 25, fontWeight: '900', color: '#111827' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Dimensions.get('window').width <= 600 ? 6 : 10 },
-  headerActionButton: { width: Dimensions.get('window').width <= 600 ? 38 : 48, height: Dimensions.get('window').width <= 600 ? 38 : 48, borderRadius: Dimensions.get('window').width <= 600 ? 12 : 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8EB', shadowColor: '#191F28', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+function createStyles(width: number) {
+  const currentWidth = width;
+  return StyleSheet.create({
+  header: { height: currentWidth <= 600 ? 60 : 76, paddingHorizontal: currentWidth <= 390 ? 16 : 28, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#EEF1F4' },
+  logoButton: { flexDirection: 'row', alignItems: 'center', gap: currentWidth <= 600 ? 8 : 10 },
+  logoMark: { width: currentWidth <= 600 ? 36 : 48, height: currentWidth <= 600 ? 36 : 48, borderRadius: currentWidth <= 600 ? 12 : 16, backgroundColor: '#FFF4C7', overflow: 'hidden', borderWidth: 1, borderColor: '#F5E6A6' },
+  logoImage: { width: currentWidth <= 600 ? 36 : 48, height: currentWidth <= 600 ? 36 : 48 },
+  logoLabel: { fontSize: currentWidth <= 600 ? 9 : 12, lineHeight: currentWidth <= 600 ? 12 : 15, fontWeight: '900', letterSpacing: 0.4, color: '#3182F6' },
+  logoTitle: { marginTop: 0, fontSize: currentWidth <= 600 ? 17 : 21, lineHeight: currentWidth <= 600 ? 21 : 25, fontWeight: '900', color: '#111827' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: currentWidth <= 600 ? 6 : 10 },
+  headerActionButton: { width: currentWidth <= 600 ? 38 : 48, height: currentWidth <= 600 ? 38 : 48, borderRadius: currentWidth <= 600 ? 12 : 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8EB', shadowColor: '#191F28', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   screen: { flex: 1, backgroundColor: '#F7F8FA' },
-  homeContent: { width: '100%', maxWidth: 540, alignSelf: 'center', paddingHorizontal: Dimensions.get('window').width <= 340 ? 16 : 28, paddingTop: 24, paddingBottom: 28 },
-  heroCard: { width: '100%', backgroundColor: '#FFFFFF', borderRadius: 22, padding: Dimensions.get('window').width <= 340 ? 18 : 24, marginBottom: 24, borderWidth: 1, borderColor: '#F0F2F4', shadowColor: '#191F28', shadowOpacity: 0.055, shadowRadius: 16, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
+  homeContent: { width: '100%', maxWidth: 540, alignSelf: 'center', paddingHorizontal: currentWidth <= 390 ? 16 : 28, paddingTop: 24, paddingBottom: 28 },
+  heroCard: { width: '100%', backgroundColor: '#FFFFFF', borderRadius: 22, padding: currentWidth <= 390 ? 18 : 24, marginBottom: 24, borderWidth: 1, borderColor: '#F0F2F4', shadowColor: '#191F28', shadowOpacity: 0.055, shadowRadius: 16, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   eyebrow: { fontSize: 13, lineHeight: 18, fontWeight: '700', color: '#6B7684' },
   heroTitle: { marginTop: 4, fontSize: 26, lineHeight: 32, fontWeight: '900', color: '#191F28' },
   heroDate: { marginTop: 5, fontSize: 13, lineHeight: 18, color: '#8B95A1' },
   roundBadge: { paddingHorizontal: 11, paddingVertical: 8, borderRadius: 13, backgroundColor: '#EAF3FF' },
   roundBadgeText: { fontSize: 11, lineHeight: 15, fontWeight: '800', color: '#3182F6' },
-  ballRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Dimensions.get('window').width <= 340 ? 6 : 10, marginTop: 18 },
-  ball: { width: Dimensions.get('window').width <= 340 ? 36 : 44, height: Dimensions.get('window').width <= 340 ? 36 : 44, borderRadius: Dimensions.get('window').width <= 340 ? 18 : 22, alignItems: 'center', justifyContent: 'center' },
-  ballText: { color: '#FFFFFF', fontSize: Dimensions.get('window').width <= 340 ? 12 : 14, lineHeight: Dimensions.get('window').width <= 340 ? 16 : 18, fontWeight: '900' },
+  ballRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: currentWidth <= 390 ? 6 : 10, marginTop: 18 },
+  ball: { width: currentWidth <= 390 ? 36 : 44, height: currentWidth <= 390 ? 36 : 44, borderRadius: currentWidth <= 390 ? 18 : 22, alignItems: 'center', justifyContent: 'center' },
+  ballText: { color: '#FFFFFF', fontSize: currentWidth <= 390 ? 12 : 14, lineHeight: currentWidth <= 390 ? 16 : 18, fontWeight: '900' },
   plusCircle: { width: 24, height: 44, alignItems: 'center', justifyContent: 'center' },
   plusText: { color: '#191F28', fontSize: 18, lineHeight: 22, fontWeight: '900' },
   sectionHeader: {
@@ -229,18 +242,18 @@ export const styles = StyleSheet.create({
     letterSpacing: -0.35,
   },
   menuGrid: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginBottom: 24 },
-  actionCard: { width: Dimensions.get('window').width <= 340 ? '100%' : '48.5%', minHeight: 112, paddingHorizontal: 14, paddingVertical: 16, borderRadius: 20, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F0F2F4', flexDirection: 'row', alignItems: 'center', shadowColor: '#191F28', shadowOpacity: 0.055, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  actionCard: { width: currentWidth <= 390 ? '100%' : '48.5%', minHeight: 112, paddingHorizontal: 14, paddingVertical: 16, borderRadius: 20, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F0F2F4', flexDirection: 'row', alignItems: 'center', shadowColor: '#191F28', shadowOpacity: 0.055, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   actionIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EAF3FF', marginRight: 10, flexShrink: 0 },
   actionTextWrap: { flex: 1, minWidth: 0 },
   actionTitle: { fontSize: 16, lineHeight: 21, fontWeight: '900', color: '#191F28', letterSpacing: -0.25 },
   actionDescription: { marginTop: 4, fontSize: 11, lineHeight: 16, color: '#6B7684', letterSpacing: -0.2 },
-  prizeCard: { width: '100%', minHeight: 143, paddingHorizontal: Dimensions.get('window').width <= 340 ? 16 : 20, paddingVertical: 22, borderRadius: 22, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F0F2F4', flexDirection: Dimensions.get('window').width <= 340 ? 'column' : 'row', alignItems: Dimensions.get('window').width <= 340 ? 'stretch' : 'center', shadowColor: '#191F28', shadowOpacity: 0.05, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-  prizeCopy: { flex: 1, minWidth: 0, paddingRight: Dimensions.get('window').width <= 340 ? 0 : 10 },
+  prizeCard: { width: '100%', minHeight: 143, paddingHorizontal: currentWidth <= 390 ? 16 : 20, paddingVertical: 22, borderRadius: 22, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F0F2F4', flexDirection: currentWidth <= 390 ? 'column' : 'row', alignItems: currentWidth <= 390 ? 'stretch' : 'center', shadowColor: '#191F28', shadowOpacity: 0.05, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  prizeCopy: { flex: 1, minWidth: 0, paddingRight: currentWidth <= 390 ? 0 : 10 },
   prizeLabel: { fontSize: 12, lineHeight: 16, fontWeight: '700', color: '#6B7684' },
-  prizeValue: { marginTop: 5, fontSize: Dimensions.get('window').width <= 600 ? 18 : 20, lineHeight: Dimensions.get('window').width <= 600 ? 24 : 26, fontWeight: '900', color: '#191F28', letterSpacing: -0.4, flexShrink: 1 },
+  prizeValue: { marginTop: 5, fontSize: currentWidth <= 600 ? 18 : 20, lineHeight: currentWidth <= 600 ? 24 : 26, fontWeight: '900', color: '#191F28', letterSpacing: -0.4, flexShrink: 1 },
   prizeSubValue: { marginTop: 4, fontSize: 12, lineHeight: 16, fontWeight: '700', color: '#6B7684' },
-  prizeDivider: { width: Dimensions.get('window').width <= 340 ? '100%' : 1, height: Dimensions.get('window').width <= 340 ? 1 : undefined, alignSelf: 'stretch', marginVertical: Dimensions.get('window').width <= 340 ? 12 : 2, backgroundColor: '#E5E8EB' },
-  prizeMetaBox: { width: Dimensions.get('window').width <= 340 ? '100%' : (Dimensions.get('window').width <= 600 ? 108 : 128), alignItems: 'flex-start', flexShrink: 0, marginLeft: Dimensions.get('window').width <= 340 ? 0 : 10 },
+  prizeDivider: { width: currentWidth <= 390 ? '100%' : 1, height: currentWidth <= 390 ? 1 : undefined, alignSelf: 'stretch', marginVertical: currentWidth <= 390 ? 12 : 2, backgroundColor: '#E5E8EB' },
+  prizeMetaBox: { width: currentWidth <= 390 ? '100%' : (currentWidth <= 600 ? 108 : 128), alignItems: 'flex-start', flexShrink: 0, marginLeft: currentWidth <= 390 ? 0 : 10 },
   prizeMetaLabel: { fontSize: 12, lineHeight: 16, fontWeight: '700', color: '#6B7684' },
   prizeMetaValue: { marginTop: 5, fontSize: 21, lineHeight: 26, fontWeight: '900', color: '#191F28', letterSpacing: -0.3 },
   prizeMetaSmall: { marginTop: 4, fontSize: 10, lineHeight: 14, fontWeight: '700', color: '#6B7684' },
@@ -254,19 +267,19 @@ export const styles = StyleSheet.create({
   noticeCard: { width: '100%', minHeight: 28, marginTop: 14, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: '#EAF3FF', flexDirection: 'row', alignItems: 'center' },
   noticeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#3182F6', marginRight: 7 },
   noticeText: { fontSize: 11, lineHeight: 16, color: '#667386' },
-  roundSelector: { height: Dimensions.get('window').width <= 600 ? 48 : 56, paddingHorizontal: Dimensions.get('window').width <= 340 ? 10 : (Dimensions.get('window').width <= 600 ? 14 : 24), backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#EEF1F4' },
-  roundSelectorButton: { minWidth: Dimensions.get('window').width <= 600 ? 58 : 66, paddingHorizontal: Dimensions.get('window').width <= 600 ? 6 : 8, paddingVertical: Dimensions.get('window').width <= 600 ? 5 : 6, borderRadius: 10, alignItems: 'center', backgroundColor: '#FFFFFF' },
+  roundSelector: { height: currentWidth <= 600 ? 48 : 56, paddingHorizontal: currentWidth <= 390 ? 10 : (currentWidth <= 600 ? 14 : 24), backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#EEF1F4' },
+  roundSelectorButton: { minWidth: currentWidth <= 600 ? 58 : 66, paddingHorizontal: currentWidth <= 600 ? 6 : 8, paddingVertical: currentWidth <= 600 ? 5 : 6, borderRadius: 10, alignItems: 'center', backgroundColor: '#FFFFFF' },
   roundSelectorButtonDisabled: { opacity: 0.45 },
-  roundSelectorButtonText: { fontSize: Dimensions.get('window').width <= 600 ? 10 : 11, lineHeight: 14, fontWeight: '800', color: '#191F28' },
+  roundSelectorButtonText: { fontSize: currentWidth <= 600 ? 10 : 11, lineHeight: 14, fontWeight: '800', color: '#191F28' },
   roundSelectorButtonTextDisabled: { color: '#8B95A1' },
   roundSelectorCenter: { flex: 1, alignItems: 'center' },
   roundSelectorLabel: { fontSize: 9, lineHeight: 12, fontWeight: '700', color: '#8B95A1' },
-  roundSelectorValue: { marginTop: 0, fontSize: Dimensions.get('window').width <= 600 ? 13 : 14, lineHeight: 18, fontWeight: '900', color: '#191F28' },
+  roundSelectorValue: { marginTop: 0, fontSize: currentWidth <= 600 ? 13 : 14, lineHeight: 18, fontWeight: '900', color: '#191F28' },
   roundSelectorLoading: { marginTop: 0, fontSize: 8, lineHeight: 11, color: '#3182F6' },
-  bottomNav: { width: '100%', height: 60, minHeight: 60, paddingHorizontal: Dimensions.get('window').width <= 600 ? 8 : 12, paddingTop: 0, paddingBottom: 0, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EEF1F4', borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+  bottomNav: { width: '100%', height: 60, minHeight: 60, paddingHorizontal: currentWidth <= 600 ? 8 : 12, paddingTop: 0, paddingBottom: 0, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EEF1F4', borderTopLeftRadius: 22, borderTopRightRadius: 22 },
   navItem: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 18, marginHorizontal: 2 },
   navItemActive: { backgroundColor: 'transparent' },
-  navIconWrap: { width: 30, height: 24, borderRadius: Dimensions.get('window').width <= 600 ? 8 : 11, alignItems: 'center', justifyContent: 'center' },
+  navIconWrap: { width: 30, height: 24, borderRadius: currentWidth <= 600 ? 8 : 11, alignItems: 'center', justifyContent: 'center' },
   navIconWrapActive: { backgroundColor: 'transparent' },
   navLabel: { marginTop: 0, fontSize: 12, lineHeight: 15, fontWeight: '800', color: '#667386' },
   navLabelActive: { fontWeight: '900', color: '#3182F6' },
@@ -279,3 +292,6 @@ export const styles = StyleSheet.create({
   purchaseTypeButtonTextActive: { color: '#3182F6', fontWeight: '900' },
   purchaseTypeUnset: { marginLeft: 2, fontSize: 9, fontWeight: '700', color: '#A0A8B2' },
 });
+}
+
+export let styles = createStyles(currentWidth);
