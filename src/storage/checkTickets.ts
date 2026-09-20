@@ -23,7 +23,11 @@ export async function loadCheckTickets(): Promise<SavedCheckTicket[]> {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((ticket) => ({
+      ...ticket,
+      purchaseType: ticket.purchaseType ?? null,
+    }));
   } catch {
     return [];
   }

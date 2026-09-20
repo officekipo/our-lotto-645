@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
 import { CameraView, useCameraPermissions } from '../platform/camera';
 import * as Clipboard from '../platform/clipboard';
-import { loadCheckTickets, saveCheckTickets, type SavedCheckTicket } from '../storage/checkTickets';
+import { loadCheckTickets, saveCheckTickets, type SavedCheckTicket, type PurchaseType } from '../storage/checkTickets';
 import { fetchDraw } from '../services/lottoApi';
 import { tw } from '../../App.tw';
 import { cn } from '../styles/cn';
@@ -13,7 +13,16 @@ type ScannedTicket = {
   round: number;
   numbers: number[];
   source: 'QR';
+  purchaseType: PurchaseType | null;
 };
+
+function purchaseTypeFromQrCode(code: string): PurchaseType | null {
+  const normalized = code.toLowerCase();
+  if (normalized === 'q') return '자동';
+  if (normalized === 'm') return '수동';
+  // 반자동 QR 코드는 현재 확인된 형식이 없어 추측하지 않습니다.
+  return null;
+}
 
 type CheckTicket = SavedCheckTicket;
 
@@ -27,7 +36,7 @@ function parseLottoQr(raw: string): ScannedTicket[] {
     const numbers = Array.from({ length: 6 }, (_, i) => Number(digits.slice(i * 2, i * 2 + 2)));
     const valid = round > 0 && numbers.length === 6 && numbers.every((n) => n >= 1 && n <= 45) && new Set(numbers).size === 6;
     if (!valid) return [];
-    return [{ id: `${round}-${numbers.join('-')}-${Date.now()}-${index}`, round, numbers: numbers.sort((a, b) => a - b), source: 'QR' as const }];
+    return [{ id: `${round}-${numbers.join('-')}-${Date.now()}-${index}`, round, numbers: numbers.sort((a, b) => a - b), source: 'QR' as const, purchaseType: purchaseTypeFromQrCode(match[2]) }];
   });
 }
 
@@ -82,6 +91,11 @@ function CheckScreen({ draw }: { draw: DrawData }) {
   }, []);
 
   useEffect(() => {
+    if (!storageReady) return;
+    saveCheckTickets(tickets).catch(() => undefined);
+  }, [storageReady, tickets]);
+
+  useEffect(() => {
     if (!storageReady || tickets.length === 0) return;
 
     let cancelled = false;
@@ -121,13 +135,14 @@ function CheckScreen({ draw }: { draw: DrawData }) {
     }
   }
 
-  function addTickets(items: Array<{ round: number; numbers: number[]; source: '수기' | 'QR' }>) {
+  function addTickets(items: Array<{ round: number; numbers: number[]; source: '수기' | 'QR'; purchaseType?: PurchaseType | null }>) {
     const now = Date.now();
     const additions: CheckTicket[] = items.map((item, index) => ({
       id: `${item.round}-${item.numbers.join('-')}-${now}-${index}`,
       round: item.round,
       numbers: [...item.numbers].sort((a, b) => a - b),
       source: item.source,
+      purchaseType: item.purchaseType ?? (item.source === '수기' ? '직접 입력' : null),
       rank: null,
       matches: 0,
       bonusMatch: false,
@@ -155,7 +170,7 @@ function CheckScreen({ draw }: { draw: DrawData }) {
       Alert.alert('QR을 읽었지만 번호를 찾지 못했습니다.', '로또 6/45 구매용 QR인지 확인해 주세요.');
       return;
     }
-    const first = addTickets(parsed.map((ticket) => ({ round: ticket.round, numbers: ticket.numbers, source: 'QR' as const })));
+    const first = addTickets(parsed.map((ticket) => ({ round: ticket.round, numbers: ticket.numbers, source: 'QR' as const, purchaseType: ticket.purchaseType })));
     if (first) applyTicket(first);
     setScannerOpen(false);
     scanningRef.current = false;
@@ -197,7 +212,7 @@ function CheckScreen({ draw }: { draw: DrawData }) {
         prize: evaluated.prize,
       } : ticket));
     } else {
-      addTickets([{ round: draw.round, numbers, source: '수기' }]);
+      addTickets([{ round: draw.round, numbers, source: '수기', purchaseType: '직접 입력' }]);
       setTickets((current) => current.map((ticket) => ticket.round === draw.round && ticket.numbers.join('-') === numbers.slice().sort((a, b) => a - b).join('-') && ticket.rank === null ? {
         ...ticket,
         rank: evaluated.rank,
@@ -286,7 +301,17 @@ function CheckScreen({ draw }: { draw: DrawData }) {
             <View key={ticket.id} className={cn(tw.savedTicketRow, ticket.claimed && tw.savedTicketRowClaimed)} style={rnStyle(cn(tw.savedTicketRow, ticket.claimed && tw.savedTicketRowClaimed))}>
               <Pressable onPress={() => toggleSelected(ticket.id)} className={tw.savedTicketCheck} style={rnStyle(tw.savedTicketCheck)}><Text className={selectedIds.includes(ticket.id) ? tw.savedTicketCheckActive : tw.savedTicketCheckText} style={rnStyle(selectedIds.includes(ticket.id) ? tw.savedTicketCheckActive : tw.savedTicketCheckText)}>{selectedIds.includes(ticket.id) ? '✓' : '□'}</Text></Pressable>
               <Pressable onPress={() => applyTicket(ticket)} className={tw.savedTicketMain} style={rnStyle(tw.savedTicketMain)}>
-                <View className={tw.savedTicketTop} style={rnStyle(tw.savedTicketTop)}><Text className={tw.savedTicketRound} style={rnStyle(tw.savedTicketRound)}>{ticket.round}회 · {ticket.source}</Text><Text className={ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank} style={rnStyle(ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank)}>{ticket.rank ?? '미확인'}</Text></View>
+                <View className={tw.savedTicketTop} style={rnStyle(tw.savedTicketTop)}>
+                  <View className={tw.savedTicketRound} style={[rnStyle(tw.savedTicketRound), { flexDirection: 'row', alignItems: 'center' }]}>
+                    <Text>{ticket.round}회 · {ticket.source}</Text>
+                    {ticket.purchaseType ? (
+                      <View style={{ marginLeft: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: ticket.purchaseType === '자동' ? COLORS.primarySoft : ticket.purchaseType === '반자동' ? '#FFF4E5' : '#F3F4F6' }}>
+                        <Text style={{ fontSize: 10, lineHeight: 14, color: ticket.purchaseType === '자동' ? COLORS.primary : ticket.purchaseType === '반자동' ? COLORS.amber : COLORS.sub }}>{ticket.purchaseType}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text className={ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank} style={rnStyle(ticket.rank === '낙첨' ? tw.savedTicketLose : tw.savedTicketRank)}>{ticket.rank ?? '미확인'}</Text>
+                </View>
                 <View className={tw.savedTicketNumbersRow} style={rnStyle(tw.savedTicketNumbersRow)}>
                   {ticket.numbers.map((number) => {
                     const hit = Boolean(ticket.rank && ticket.rank !== '낙첨' && ticket.round === draw.round && draw.numbers.includes(number));

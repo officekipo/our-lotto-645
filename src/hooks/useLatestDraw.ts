@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { fetchDraw, fetchLatestDraw } from '../services/lottoApi';
 import type { DrawData } from '../types/lotto';
@@ -27,13 +27,15 @@ export function useLatestDraw() {
   const [draw, setDraw] = useState<DrawData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedDraw = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function loadLatestDraw(force = false) {
-      setLoading(true);
+      const isInitialLoad = !hasLoadedDraw.current;
+      if (isInitialLoad) setLoading(true);
       setError(null);
 
       const estimatedRound = getEstimatedRound();
@@ -42,20 +44,28 @@ export function useLatestDraw() {
       // 이전 회차(예: 1240회)로 조용히 내려가지 않습니다.
       const latest = await fetchLatestDraw({ force });
       if (latest && latest.round >= estimatedRound) {
-        if (!cancelled) setDraw(latest);
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setDraw(latest);
+          hasLoadedDraw.current = true;
+          setLoading(false);
+        }
         return;
       }
 
       const exact = await fetchDraw(estimatedRound, { force });
       if (exact && exact.round === estimatedRound) {
-        if (!cancelled) setDraw(exact);
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setDraw(exact);
+          hasLoadedDraw.current = true;
+          setLoading(false);
+        }
         return;
       }
 
       if (!cancelled) {
-        setDraw(null);
+        // 이미 화면에 표시 중인 실제 데이터는 유지합니다.
+        // 백그라운드 재조회 실패 때문에 홈 화면 전체가 로딩 화면으로
+        // 교체되거나 깜빡이는 것을 방지합니다.
         setError('최신 회차 정보를 가져오는 중입니다.');
         setLoading(false);
       }
