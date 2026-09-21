@@ -1,19 +1,18 @@
 import React from 'react';
-import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text as RNText, TextInput as RNTextInput, View } from 'react-native';
-
+import { Dimensions, Image, Platform, Pressable, ScrollView, StyleSheet, Text as RNText, TextInput as RNTextInput, View } from 'react-native';
 import { tw } from '../../App.tw';
 import { cn } from '../styles/cn';
 
 let currentWidth = Dimensions.get('window').width;
-export let styles: ReturnType<typeof createStyles>;
-const updateResponsiveStyles = (width: number) => {
+const updateResponsiveWidth = (width: number) => {
   currentWidth = width;
-  styles = createStyles(width);
+  styles = createStyles(currentWidth);
 };
-Dimensions.addEventListener('change', ({ window }) => updateResponsiveStyles(window.width));
-if (typeof window !== 'undefined') {
-  window.addEventListener('resize', () => updateResponsiveStyles(window.innerWidth));
+Dimensions.addEventListener('change', ({ window }) => updateResponsiveWidth(window.width));
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  window.addEventListener('resize', () => updateResponsiveWidth(window.innerWidth));
 }
+
 
 export type TabKey = 'home' | 'recommend' | 'stats' | 'check' | 'more';
 export type DrawData = import('../types/lotto').DrawData;
@@ -97,7 +96,7 @@ export function rnStyle(...classNames: Array<string | false | null | undefined>)
     m = token.match(/^basis-\[(.+)\]$/); if(m){style.flexBasis=m[1].endsWith('px')?n(m[1]):m[1];return;}
     m = token.match(/^aspect-\[(.+)\]$/); if(m){style.aspectRatio=Number(m[1])||1;return;}
     m = token.match(/^rounded(?:-(t|b|l|r))?-\[([\d.]+)px\]$/); if(m){const r=n(m[2]),d=m[1]; if(!d)style.borderRadius=r; else if(d==='t'){style.borderTopLeftRadius=r;style.borderTopRightRadius=r;} else if(d==='b'){style.borderBottomLeftRadius=r;style.borderBottomRightRadius=r;} else if(d==='l'){style.borderTopLeftRadius=r;style.borderBottomLeftRadius=r;} else {style.borderTopRightRadius=r;style.borderBottomRightRadius=r;} return;}
-    m = token.match(/^border(?:-(b|t|l|r))?-\[([\d.]+)px\]$/); if(m){const w=n(m[2]),d=m[1]; if(!d) style.borderWidth=w; else if(d==='b') style.borderBottomWidth=w; else if(d==='t') style.borderTopWidth=w; else if(d==='l') style.borderLeftWidth=w; else style.borderRightWidth=w; return;}
+    m = token.match(/^border(?:-(b|t|l|r))?-\[([\d.]+)px\]$/); if(m){const w=n(m[2]),d=m[1]; if(!d) style.borderWidth=w; else { const borderMap: Record<string, 'borderBottomWidth'|'borderTopWidth'|'borderLeftWidth'|'borderRightWidth'> = {b:'borderBottomWidth',t:'borderTopWidth',l:'borderLeftWidth',r:'borderRightWidth'}; style[borderMap[d]]=w; }return;}
     m = token.match(/^(bg|text|border|border-b|border-t|border-l|border-r)-\[(.+)\]$/); if(m){const p=m[1],v=m[2]; if(p==='text' && /^-?[\d.]+px$/.test(v)) return; const map:any={bg:'backgroundColor',text:'color',border:'borderColor','border-b':'borderBottomColor','border-t':'borderTopColor','border-l':'borderLeftColor','border-r':'borderRightColor'};style[map[p]]=v;return;}
     m = token.match(/^text-\[([\d.]+)px\]$/); if(m) return void(style.fontSize=n(m[1]));
     m = token.match(/^leading-\[([\d.]+)px\]$/); if(m) return void(style.lineHeight=n(m[1]));
@@ -208,14 +207,14 @@ export function SectionHeader({ title }: { title: string }) {
 function createStyles(width: number) {
   const currentWidth = width;
   return StyleSheet.create({
-  header: { height: 76, paddingHorizontal: currentWidth <= 390 ? 16 : 28, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#EEF1F4' },
-  logoButton: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoMark: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#FFF4C7', overflow: 'hidden', borderWidth: 1, borderColor: '#F5E6A6' },
-  logoImage: { width: 48, height: 48 },
-  logoLabel: { fontSize: 12, lineHeight: 15, fontWeight: '900', letterSpacing: 0.4, color: '#3182F6' },
-  logoTitle: { marginTop: 1, fontSize: 21, lineHeight: 25, fontWeight: '900', color: '#111827' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerActionButton: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8EB', shadowColor: '#191F28', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  header: { height: currentWidth <= 600 ? 60 : 76, paddingHorizontal: currentWidth <= 390 ? 16 : 28, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#EEF1F4' },
+  logoButton: { flexDirection: 'row', alignItems: 'center', gap: currentWidth <= 600 ? 8 : 10 },
+  logoMark: { width: currentWidth <= 600 ? 36 : 48, height: currentWidth <= 600 ? 36 : 48, borderRadius: currentWidth <= 600 ? 12 : 16, backgroundColor: '#FFF4C7', overflow: 'hidden', borderWidth: 1, borderColor: '#F5E6A6' },
+  logoImage: { width: currentWidth <= 600 ? 36 : 48, height: currentWidth <= 600 ? 36 : 48 },
+  logoLabel: { fontSize: currentWidth <= 600 ? 9 : 12, lineHeight: currentWidth <= 600 ? 12 : 15, fontWeight: '900', letterSpacing: 0.4, color: '#3182F6' },
+  logoTitle: { marginTop: 0, fontSize: currentWidth <= 600 ? 17 : 21, lineHeight: currentWidth <= 600 ? 21 : 25, fontWeight: '900', color: '#111827' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: currentWidth <= 600 ? 6 : 10 },
+  headerActionButton: { width: currentWidth <= 600 ? 38 : 48, height: currentWidth <= 600 ? 38 : 48, borderRadius: currentWidth <= 600 ? 12 : 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8EB', shadowColor: '#191F28', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   screen: { flex: 1, backgroundColor: '#F7F8FA' },
   homeContent: { width: '100%', maxWidth: 540, alignSelf: 'center', paddingHorizontal: currentWidth <= 390 ? 16 : 28, paddingTop: 24, paddingBottom: 28 },
   heroCard: { width: '100%', backgroundColor: '#FFFFFF', borderRadius: 22, padding: currentWidth <= 390 ? 18 : 24, marginBottom: 24, borderWidth: 1, borderColor: '#F0F2F4', shadowColor: '#191F28', shadowOpacity: 0.055, shadowRadius: 16, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
@@ -249,12 +248,12 @@ function createStyles(width: number) {
   actionTitle: { fontSize: 16, lineHeight: 21, fontWeight: '900', color: '#191F28', letterSpacing: -0.25 },
   actionDescription: { marginTop: 4, fontSize: 11, lineHeight: 16, color: '#6B7684', letterSpacing: -0.2 },
   prizeCard: { width: '100%', minHeight: 143, paddingHorizontal: currentWidth <= 390 ? 16 : 20, paddingVertical: 22, borderRadius: 22, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F0F2F4', flexDirection: currentWidth <= 390 ? 'column' : 'row', alignItems: currentWidth <= 390 ? 'stretch' : 'center', shadowColor: '#191F28', shadowOpacity: 0.05, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-  prizeCopy: { flex: 1, minWidth: 0, paddingRight: currentWidth <= 390 ? 0 : 16 },
+  prizeCopy: { flex: 1, minWidth: 0, paddingRight: currentWidth <= 390 ? 0 : 10 },
   prizeLabel: { fontSize: 12, lineHeight: 16, fontWeight: '700', color: '#6B7684' },
-  prizeValue: { marginTop: 5, fontSize: 20, lineHeight: 26, fontWeight: '900', color: '#191F28', letterSpacing: -0.4 },
+  prizeValue: { marginTop: 5, fontSize: currentWidth <= 600 ? 18 : 20, lineHeight: currentWidth <= 600 ? 24 : 26, fontWeight: '900', color: '#191F28', letterSpacing: -0.4, flexShrink: 1 },
   prizeSubValue: { marginTop: 4, fontSize: 12, lineHeight: 16, fontWeight: '700', color: '#6B7684' },
   prizeDivider: { width: currentWidth <= 390 ? '100%' : 1, height: currentWidth <= 390 ? 1 : undefined, alignSelf: 'stretch', marginVertical: currentWidth <= 390 ? 12 : 2, backgroundColor: '#E5E8EB' },
-  prizeMetaBox: { width: currentWidth <= 390 ? '100%' : 128, alignItems: 'flex-start', flexShrink: 0, marginLeft: currentWidth <= 390 ? 0 : 16 },
+  prizeMetaBox: { width: currentWidth <= 390 ? '100%' : (currentWidth <= 600 ? 108 : 128), alignItems: 'flex-start', flexShrink: 0, marginLeft: currentWidth <= 390 ? 0 : 10 },
   prizeMetaLabel: { fontSize: 12, lineHeight: 16, fontWeight: '700', color: '#6B7684' },
   prizeMetaValue: { marginTop: 5, fontSize: 21, lineHeight: 26, fontWeight: '900', color: '#191F28', letterSpacing: -0.3 },
   prizeMetaSmall: { marginTop: 4, fontSize: 10, lineHeight: 14, fontWeight: '700', color: '#6B7684' },
@@ -268,23 +267,31 @@ function createStyles(width: number) {
   noticeCard: { width: '100%', minHeight: 28, marginTop: 14, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: '#EAF3FF', flexDirection: 'row', alignItems: 'center' },
   noticeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#3182F6', marginRight: 7 },
   noticeText: { fontSize: 11, lineHeight: 16, color: '#667386' },
-  roundSelector: { height: 64, paddingHorizontal: currentWidth <= 390 ? 16 : 28, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#EEF1F4' },
-  roundSelectorButton: { minWidth: 70, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, alignItems: 'center', backgroundColor: '#FFFFFF' },
+  roundSelector: { height: currentWidth <= 600 ? 48 : 56, paddingHorizontal: currentWidth <= 390 ? 10 : (currentWidth <= 600 ? 14 : 24), backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#EEF1F4' },
+  roundSelectorButton: { minWidth: currentWidth <= 600 ? 58 : 66, paddingHorizontal: currentWidth <= 600 ? 6 : 8, paddingVertical: currentWidth <= 600 ? 5 : 6, borderRadius: 10, alignItems: 'center', backgroundColor: '#FFFFFF' },
   roundSelectorButtonDisabled: { opacity: 0.45 },
-  roundSelectorButtonText: { fontSize: 11, lineHeight: 15, fontWeight: '800', color: '#191F28' },
+  roundSelectorButtonText: { fontSize: currentWidth <= 600 ? 10 : 11, lineHeight: 14, fontWeight: '800', color: '#191F28' },
   roundSelectorButtonTextDisabled: { color: '#8B95A1' },
   roundSelectorCenter: { flex: 1, alignItems: 'center' },
-  roundSelectorLabel: { fontSize: 10, lineHeight: 14, fontWeight: '700', color: '#8B95A1' },
-  roundSelectorValue: { marginTop: 1, fontSize: 15, lineHeight: 20, fontWeight: '900', color: '#191F28' },
-  roundSelectorLoading: { marginTop: 1, fontSize: 9, lineHeight: 13, color: '#3182F6' },
-  bottomNav: { width: '100%', height: 84, minHeight: 84, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EEF1F4', borderTopLeftRadius: 22, borderTopRightRadius: 22 },
-  navItem: { flex: 1, height: 64, alignItems: 'center', justifyContent: 'center', borderRadius: 18, marginHorizontal: 2 },
-  navItemActive: { backgroundColor: '#EAF3FF' },
-  navIconWrap: { width: 38, height: 32, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  navIconWrapActive: { backgroundColor: '#FFFFFF' },
-  navLabel: { marginTop: 6, fontSize: 11, lineHeight: 15, fontWeight: '800', color: '#667386' },
+  roundSelectorLabel: { fontSize: 9, lineHeight: 12, fontWeight: '700', color: '#8B95A1' },
+  roundSelectorValue: { marginTop: 0, fontSize: currentWidth <= 600 ? 13 : 14, lineHeight: 18, fontWeight: '900', color: '#191F28' },
+  roundSelectorLoading: { marginTop: 0, fontSize: 8, lineHeight: 11, color: '#3182F6' },
+  bottomNav: { width: '100%', height: 60, minHeight: 60, paddingHorizontal: currentWidth <= 600 ? 8 : 12, paddingTop: 0, paddingBottom: 0, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EEF1F4', borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+  navItem: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 18, marginHorizontal: 2 },
+  navItemActive: { backgroundColor: 'transparent' },
+  navIconWrap: { width: 30, height: 24, borderRadius: currentWidth <= 600 ? 8 : 11, alignItems: 'center', justifyContent: 'center' },
+  navIconWrapActive: { backgroundColor: 'transparent' },
+  navLabel: { marginTop: 0, fontSize: 12, lineHeight: 15, fontWeight: '800', color: '#667386' },
   navLabelActive: { fontWeight: '900', color: '#3182F6' },
+  purchaseTypeRow: { marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  purchaseTypeLabel: { fontSize: 11, fontWeight: '800', color: '#6B7684' },
+  purchaseTypeButtons: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  purchaseTypeButton: { minWidth: 44, height: 28, paddingHorizontal: 9, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F7F8FA', borderWidth: 1, borderColor: '#E5E8EB' },
+  purchaseTypeButtonActive: { backgroundColor: '#EAF3FF', borderColor: '#3182F6' },
+  purchaseTypeButtonText: { fontSize: 10, fontWeight: '800', color: '#8B95A1' },
+  purchaseTypeButtonTextActive: { color: '#3182F6', fontWeight: '900' },
+  purchaseTypeUnset: { marginLeft: 2, fontSize: 9, fontWeight: '700', color: '#A0A8B2' },
 });
 }
 
-styles = createStyles(currentWidth);
+export let styles = createStyles(currentWidth);

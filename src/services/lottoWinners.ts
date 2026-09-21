@@ -10,14 +10,7 @@ async function fetchWinnerStores(round: number, rank: 1 | 2): Promise<WinnerStor
   const cached = cache.get(key);
   if (cached) return cached;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE}?srchWnShpRnk=${rank}&srchLtEpsd=${round}`, { signal: controller.signal });
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  const response = await fetch(`${API_BASE}?srchWnShpRnk=${rank}&srchLtEpsd=${round}`);
   if (!response.ok) throw new Error(`Winner store API error: ${response.status}`);
   const json = await response.json();
   const list = Array.isArray(json?.data?.list) ? json.data.list : [];

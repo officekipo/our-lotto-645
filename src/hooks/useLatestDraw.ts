@@ -27,15 +27,14 @@ export function useLatestDraw() {
   const [draw, setDraw] = useState<DrawData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const hasLoadedDraw = useRef(false);
+  const drawRef = useRef<DrawData | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function loadLatestDraw(force = false) {
-      const isInitialLoad = !hasLoadedDraw.current;
-      if (isInitialLoad) setLoading(true);
+      setLoading(true);
       setError(null);
 
       const estimatedRound = getEstimatedRound();
@@ -45,58 +44,51 @@ export function useLatestDraw() {
       const latest = await fetchLatestDraw({ force });
       if (latest && latest.round >= estimatedRound) {
         if (!cancelled) {
+          drawRef.current = latest;
           setDraw(latest);
-          hasLoadedDraw.current = true;
-          setLoading(false);
         }
+        if (!cancelled) setLoading(false);
         return;
       }
 
       const exact = await fetchDraw(estimatedRound, { force });
       if (exact && exact.round === estimatedRound) {
         if (!cancelled) {
+          drawRef.current = exact;
           setDraw(exact);
-          hasLoadedDraw.current = true;
-          setLoading(false);
         }
+        if (!cancelled) setLoading(false);
         return;
       }
 
       if (!cancelled) {
-        // 이미 화면에 표시 중인 실제 데이터는 유지합니다.
-        // 백그라운드 재조회 실패 때문에 홈 화면 전체가 로딩 화면으로
-        // 교체되거나 깜빡이는 것을 방지합니다.
+        drawRef.current = null;
+        setDraw(null);
         setError('최신 회차 정보를 가져오는 중입니다.');
         setLoading(false);
       }
     }
 
-    const scheduleRefresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(async () => {
-        await loadLatestDraw(true);
-        if (!cancelled) scheduleRefresh();
-      }, 60_000);
-    };
-
-    loadLatestDraw().finally(() => {
-      if (!cancelled) scheduleRefresh();
-    });
+    loadLatestDraw();
 
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         if (refreshTimer) clearTimeout(refreshTimer);
-        refreshTimer = setTimeout(() => {
-          loadLatestDraw(true).finally(() => {
-            if (!cancelled) scheduleRefresh();
-          });
-        }, 250);
+        refreshTimer = setTimeout(() => loadLatestDraw(true), 250);
       }
     });
+
+    const pollTimer = setInterval(() => {
+      const estimatedRound = getEstimatedRound();
+      if (estimatedRound > 0 && (!drawRef.current || drawRef.current.round < estimatedRound)) {
+        void loadLatestDraw(true);
+      }
+    }, 60_000);
 
     return () => {
       cancelled = true;
       if (refreshTimer) clearTimeout(refreshTimer);
+      clearInterval(pollTimer);
       subscription.remove();
     };
   }, []);

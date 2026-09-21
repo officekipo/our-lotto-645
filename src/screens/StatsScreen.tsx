@@ -320,15 +320,6 @@ function WinnerStoreSection({ stores, period, listLimits, setListLimit }: { stor
   const [selectedRegions, setSelectedRegions] = useState<{ first: string | null; second: string | null }>({ first: null, second: null });
   const [selectedCities, setSelectedCities] = useState<{ first: string | null; second: string | null }>({ first: null, second: null });
   const [expandedRegions, setExpandedRegions] = useState<{ first: boolean; second: boolean }>({ first: false, second: false });
-
-  useEffect(() => {
-    setListLimit('first', 5);
-    setListLimit('second', 5);
-    setSelectedRegions({ first: null, second: null });
-    setSelectedCities({ first: null, second: null });
-    setExpandedRegions({ first: false, second: false });
-  }, [period]);
-
   const first = summarizeWinnerStores(stores.first);
   const second = summarizeWinnerStores(stores.second);
   const renderRank = (rank: '1등' | '2등', items: WinnerStore[], summary: ReturnType<typeof summarizeWinnerStores>, selectedRegion: string | null) => {

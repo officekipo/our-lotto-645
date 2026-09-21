@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, Dimensions, Image, Linking, Modal, PanResponder, Platform, Pressable,
-  SafeAreaView, ScrollView, StatusBar, View,
+  ActivityIndicator, Alert, Animated, Image, Linking, Modal, PanResponder, Platform, Pressable,
+  SafeAreaView, ScrollView, StatusBar, View, useWindowDimensions,
 } from 'react-native';
 import { tw } from '../../App.tw';
 import { COLORS, DrawData, TabKey, Text, TextInput, rnStyle, styles } from './ui';
@@ -27,7 +27,21 @@ export function AppIcon({ name, color, size = 22 }: { name: IconName; color?: st
     <Image
       source={ICON_SOURCES[name]}
       resizeMode="contain"
-      style={{ width: size, height: size, ...(color ? { tintColor: color } : {}) }}
+      style={{
+        width: size,
+        height: size,
+        ...(color === COLORS.primary
+          ? Platform.OS === 'web'
+            ? { filter: 'brightness(0) saturate(100%) invert(46%) sepia(98%) saturate(2381%) hue-rotate(197deg) brightness(99%) contrast(96%)' }
+            : { tintColor: color }
+          : color === '#66717F'
+            ? Platform.OS === 'web'
+              ? { filter: 'brightness(0) saturate(100%) invert(43%) sepia(8%) saturate(748%) hue-rotate(176deg) brightness(91%) contrast(87%)' }
+              : { tintColor: color }
+            : color
+              ? { tintColor: color }
+              : {}),
+      } as any}
     />
   );
 }
@@ -46,10 +60,10 @@ export function AppHeader({ onHome, onMenu }: { onHome: () => void; onMenu: () =
       </Pressable>
       <View style={styles.headerActions}>
         <Pressable onPress={onHome} style={styles.headerActionButton} accessibilityLabel="홈">
-          <AppIcon name="home" size={22} />
+          <AppIcon name="home" size={18} />
         </Pressable>
         <Pressable onPress={onMenu} style={styles.headerActionButton} accessibilityLabel="메뉴">
-          <AppIcon name="menu" size={22} />
+          <AppIcon name="menu" size={18} />
         </Pressable>
       </View>
     </View>
@@ -444,6 +458,8 @@ export function ServiceLoadingScreen() {
 }
 
 export function RoundSelector({ round, latestRound, loading, onChange }: { round: number; latestRound: number; loading: boolean; onChange: (round: number) => void }) {
+  const { width } = useWindowDimensions();
+  const compact = width <= 600;
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState(String(round));
   const [inputError, setInputError] = useState('');
@@ -472,23 +488,23 @@ export function RoundSelector({ round, latestRound, loading, onChange }: { round
 
   return (
     <>
-      <View style={styles.roundSelector}>
-        <Pressable disabled={round <= 1 || loading} onPress={() => selectRound(Math.max(1, round - 1))} style={styles.roundSelectorButton}>
-          <Text style={styles.roundSelectorButtonText}>‹ 이전</Text>
+      <View style={[styles.roundSelector, compact ? { height: 46, paddingHorizontal: width <= 390 ? 10 : 12 } : { height: 52, paddingHorizontal: 18 }]}>
+        <Pressable disabled={round <= 1 || loading} onPress={() => selectRound(Math.max(1, round - 1))} style={[styles.roundSelectorButton, compact ? { minWidth: 64, paddingVertical: 6, paddingHorizontal: 8 } : { minWidth: 72, paddingVertical: 7, paddingHorizontal: 9 }]}>
+          <Text style={[styles.roundSelectorButtonText, { fontSize: compact ? 11 : 12, fontWeight: '800' }]}>‹ 이전</Text>
         </Pressable>
         <Pressable onPress={() => setOpen(true)} disabled={loading} style={styles.roundSelectorCenter}>
-          <Text style={styles.roundSelectorLabel}>조회 회차</Text>
-          <Text style={styles.roundSelectorValue}>{round}회 ▾</Text>
+          <Text style={[styles.roundSelectorLabel, { fontSize: compact ? 9 : 10 }]}>조회 회차</Text>
+          <Text style={[styles.roundSelectorValue, { fontSize: compact ? 14 : 15 }]}>{round}회 ▾</Text>
           {loading ? <Text style={styles.roundSelectorLoading}>불러오는 중…</Text> : null}
         </Pressable>
-        <Pressable disabled={!canNext || loading} onPress={() => selectRound(Math.min(latestRound, round + 1))} className={cn(tw.roundSelectorButton, (!canNext || loading) && tw.roundSelectorButtonDisabled)} style={rnStyle(cn(tw.roundSelectorButton, (!canNext || loading) && tw.roundSelectorButtonDisabled))}>
-          <Text className={cn(tw.roundSelectorButtonText, (!canNext || loading) && tw.roundSelectorButtonTextDisabled)} style={rnStyle(cn(tw.roundSelectorButtonText, (!canNext || loading) && tw.roundSelectorButtonTextDisabled))}>다음 ›</Text>
+        <Pressable disabled={!canNext || loading} onPress={() => selectRound(Math.min(latestRound, round + 1))} className={cn(tw.roundSelectorButton, (!canNext || loading) && tw.roundSelectorButtonDisabled)} style={[rnStyle(cn(tw.roundSelectorButton, (!canNext || loading) && tw.roundSelectorButtonDisabled)), compact ? { minWidth: 64, paddingVertical: 6, paddingHorizontal: 8 } : { minWidth: 72, paddingVertical: 7, paddingHorizontal: 9 }]} >
+          <Text className={cn(tw.roundSelectorButtonText, (!canNext || loading) && tw.roundSelectorButtonTextDisabled)} style={[rnStyle(cn(tw.roundSelectorButtonText, (!canNext || loading) && tw.roundSelectorButtonTextDisabled)), { fontSize: compact ? 11 : 12, fontWeight: '800' }]}>다음 ›</Text>
         </Pressable>
       </View>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View className={tw.roundModalOverlay} style={rnStyle(tw.roundModalOverlay)}>
-          <View className={tw.roundModalCard} style={rnStyle(tw.roundModalCard)}>
+          <View className={tw.roundModalCard} style={[rnStyle(tw.roundModalCard), { width: '100%', minWidth: 0, maxWidth: 520 }]}>
             <View className={tw.roundModalHeader} style={rnStyle(tw.roundModalHeader)}>
               <View>
                 <Text className={tw.roundModalTitle} style={rnStyle(tw.roundModalTitle)}>조회 회차 선택</Text>
@@ -512,7 +528,7 @@ export function RoundSelector({ round, latestRound, loading, onChange }: { round
             </View>
 
             <Text className={tw.roundModalSectionTitle} style={rnStyle(tw.roundModalSectionTitle)}>직접 입력</Text>
-            <View className={tw.roundManualRow} style={rnStyle(tw.roundManualRow)}>
+            <View className={tw.roundManualRow} style={[rnStyle(tw.roundManualRow), { width: '100%', minWidth: 0, flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap' }]}>
               <TextInput
                 value={input}
                 onChangeText={(value) => { setInput(value.replace(/[^0-9]/g, '').slice(0, 4)); setInputError(''); }}
@@ -520,9 +536,9 @@ export function RoundSelector({ round, latestRound, loading, onChange }: { round
                 maxLength={4}
                 placeholder="회차 입력"
                 placeholderTextColor={COLORS.muted}
-                className={tw.roundManualInput} style={rnStyle(tw.roundManualInput)}
+                className={tw.roundManualInput} style={[rnStyle(tw.roundManualInput), { flex: 1, minWidth: 0, width: 0, height: 46 }]}
               />
-              <Pressable onPress={submitManualRound} className={tw.roundManualButton} style={rnStyle(tw.roundManualButton)}>
+              <Pressable onPress={submitManualRound} className={tw.roundManualButton} style={[rnStyle(tw.roundManualButton), { flexShrink: 0, minWidth: 64, height: 46 }]}>
                 <Text className={tw.roundManualButtonText} style={rnStyle(tw.roundManualButtonText)}>조회</Text>
               </Pressable>
             </View>
